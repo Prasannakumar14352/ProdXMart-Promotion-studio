@@ -137,9 +137,12 @@ if __name__=='__main__':
     elif args.generate:print(batch(args.generate))
     elif args.due:run_due()
     else:
-        server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
-        url=f'http://127.0.0.1:{server.server_port}'
-        print('ProdXMart Studio:',url,flush=True)
-        threading.Thread(target=worker,daemon=True).start()
-        if not args.no_browser:webbrowser.open(url)
-        server.serve_forever()
+        with ThreadingHTTPServer(('127.0.0.1',args.port),Handler) as server:
+            try:
+                url=f'http://127.0.0.1:{server.server_port}'
+                print('ProdXMart Studio:',url,flush=True)
+                threading.Thread(target=worker,daemon=True).start()
+                if not args.no_browser:webbrowser.open(url)
+                server.serve_forever()
+            except KeyboardInterrupt:
+                print('\nProdXMart Studio stopped.',flush=True)
