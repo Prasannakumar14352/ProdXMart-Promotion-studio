@@ -88,6 +88,17 @@
 
   chrome.runtime.onMessage.addListener((message, sender, reply) => {
     if (message.type === 'list-factori-products') reply({onPage: page(), cards: scan()});
+    if (!page() || !['catalogue-page','catalogue-next'].includes(message.type)) return;
+    const pager = factoriPager(message.expectedPage);
+    if (message.type === 'catalogue-page') {
+      reply({cards:scan(), current:pager.current, total:pager.total, end:pager.end});
+    } else {
+      const next = pager.control;
+      if (!next || pager.end || next.disabled || next.getAttribute('aria-disabled')==='true' ||
+          (pager.current && pager.current !== message.expectedPage)) { reply(false); return; }
+      reply(true);
+      next.click();
+    }
   });
 
   let pending = false;

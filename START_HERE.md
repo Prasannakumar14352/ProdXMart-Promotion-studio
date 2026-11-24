@@ -74,3 +74,8 @@ engine.py handles catalogue mapping, eligibility, batch scheduling and reporting
 4. Repeat the import when a supplier price changes. The importer only reads a product you select. Factori's catalogue MRP and displayed profit do not populate unit cost or direct fees.
 
 If the card button is missing, run `git pull --ff-only`, open `chrome://extensions`, and click the **Reload** icon on **ProdXMart product importer**. Use version **1.2.0** or later for product-page details and gallery downloads. Refresh Studio as well as Factori after updating the extension. Refresh the My Products tab. Click Chrome’s **Extensions** (puzzle piece) → **ProdXMart product importer**, select the product and click **Review in Studio**. If the list is empty, copy the text of one product card from Factori, open the popup again, expand **Import copied card text**, enter the product name, paste the text and click **Review copied prices in Studio**.
+
+
+### Browse products across catalogue pages
+
+With extension **1.3.0** or later, open the importer and select **Browse all pages**. Keep the catalogue picker tab open. It opens a separate signed-in My Products tab, reads successive pages through Factori’s pagination controls and displays the page and product counts. Search by name or SKU, choose an item and click **Review in Studio**. You can review products while later pages are loading. If the scan pauses, choose **Show Factori tab**, navigate to the page requested in the message, return to the picker and click **Resume scan**. The current-page dropdown is still available for a quick single-product import.

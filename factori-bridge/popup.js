@@ -49,4 +49,8 @@ byId('use').onclick = () => {
   const sku = factoriSku(text);
   review({name, sku, stock:factoriStock(text), product_url: '', ...prices});
 };
+byId('browse').onclick = async () => {
+  await chrome.tabs.create({url:chrome.runtime.getURL('catalogue.html')});
+  window.close();
+};
 loadProducts();
