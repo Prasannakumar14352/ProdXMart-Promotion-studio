@@ -1,22 +1,10 @@
 (() => {
   const studio = 'http://127.0.0.1:8765/';
   const page = () => location.pathname.replace(/\/$/, '') === '/dashboard/products';
-  const amounts = /^\s*:?\s*([−-]?)\s*(?:₹|Rs\.?|INR)\s*([−-]?\d[\d,]*(?:\.\d{1,2})?)(?![\d.,])/i;
-  const label = /^factori\s+price$/i;
-
-  function currency(text, field) {
-    const parts = text.split(new RegExp('\\b' + field + '\\b', 'i'));
-    if (parts.length !== 2) return null;
-    const found = parts[1].trimStart().match(amounts);
-    if (!found) return null;
-    return Number((found[1] + found[2]).replace('−', '-').replaceAll(',', ''));
-  }
-
   function readCard(card) {
     const text = card.innerText;
-    const price = currency(text, 'customer\\s+pays');
-    const cost = currency(text, 'factori\\s+price');
-    if (price === null || cost === null || price <= 0 || cost < 0) return null;
+    const prices = factoriPrices(text);
+    if (!prices) return null;
     const heading = card.querySelector('h1,h2,h3,h4,[role="heading"]');
     const anchors = Array.from(card.querySelectorAll('a[href]'));
     const productLink = anchors.find(a => a.innerText.trim().length > 5 && !/^(edit|view|details|import)/i.test(a.innerText.trim()));
@@ -28,28 +16,33 @@
     const urls = anchors.filter(a=>/^https?:/.test(a.href)).map(a => new URL(a.href));
     const shop = urls.find(u => u.protocol === 'https:' && ['prodxmart.com','www.prodxmart.com'].includes(u.hostname) && u.pathname !== '/');
     const sku = (text.match(/\bSKUFACTORI\d+\b/i) || urls.map(u=>u.pathname).join(' ').match(/\bSKUFACTORI\d+\b/i))?.[0]?.toUpperCase() || '';
-    return {name, sku, product_url: shop?.href || '', price, cost, profit: currency(text, 'profit\\s+per\\s+sale')};
+    return {name, sku, product_url: shop?.href || '', ...prices};
   }
 
   function findCard(start) {
     for (let card = start; card && card !== document.body; card = card.parentElement) {
       const text = card.innerText || '';
       if ((text.match(/\bfactori\s+price\b/gi) || []).length > 1) return null;
+      if (!/factori\s+price/i.test(text)) continue;
       if (/customer\s+pays/i.test(text) && readCard(card)) return card;
     }
     return null;
   }
 
   function scan() {
-    if (!page()) return;
+    if (!page()) return [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const labels = [];
     while (walker.nextNode()) {
-      if (label.test(walker.currentNode.textContent.trim())) labels.push(walker.currentNode.parentElement);
+      const node = walker.currentNode;
+      if (/^\s*factori(?:\s+price\b|\s*$)/i.test(node.textContent)) labels.push(node.parentElement);
     }
+    const found = new Set();
     for (const node of labels) {
       const card = findCard(node);
-      if (!card || card.querySelector('[data-prodx-import]')) continue;
+      if (!card || found.has(card)) continue;
+      found.add(card);
+      if (card.querySelector('[data-prodx-import]')) continue;
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.prodxImport = '';
@@ -63,7 +56,12 @@
       };
       card.append(button);
     }
+    return Array.from(found, readCard).filter(Boolean);
   }
+
+  chrome.runtime.onMessage.addListener((message, sender, reply) => {
+    if (message.type === 'list-factori-products') reply({onPage: page(), cards: scan()});
+  });
 
   let pending = false;
   const observer = new MutationObserver(() => {

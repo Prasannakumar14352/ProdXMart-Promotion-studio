@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ProdXMart importer</title>
+<style>
+body{font:14px/1.5 "Segoe UI",sans-serif;color:#163b35;background:#f6f7f3;width:320px;margin:0;padding:18px}h1{font-size:19px;margin:0}p{margin:8px 0}label,summary{display:block;font-weight:600;margin-top:10px}summary{cursor:pointer}select,input,textarea,button{font:inherit;box-sizing:border-box;width:100%;padding:8px;border:1px solid #aebdb4;border-radius:6px}button{margin-top:12px;background:#145f53;color:white;cursor:pointer}a{color:#145f53}#error{color:#923820}
+</style></head><body>
+<h1>Import to ProdXMart Studio</h1>
+<p id="status" role="status">Looking for products in this tab…</p>
+<div id="listed" hidden><label for="product">Product</label><select id="product"></select><button id="open">Review in Studio</button></div>
+<details id="paste"><summary>Import copied card text</summary>
+<label for="name">Product name</label><input id="name" maxlength="180">
+<label for="card">Factori card text</label><textarea id="card" rows="4" placeholder="Copy one card, including Factori price and Customer pays."></textarea>
+<button id="use">Review copied prices in Studio</button></details>
+<p id="error" role="alert"></p>
+<a href="https://retailing.factori.com/dashboard/products" target="_blank" rel="noopener">Open Factori My Products</a>
+<script src="pricing.js"></script><script src="popup.js"></script></body></html>
