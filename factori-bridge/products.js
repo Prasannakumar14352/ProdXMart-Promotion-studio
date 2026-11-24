@@ -1,17 +1,33 @@
 (() => {
   const studio = 'http://127.0.0.1:8765/';
   const page = () => location.pathname.replace(/\/$/, '') === '/dashboard/products';
+  function productName(card, anchors) {
+    const heading = card.querySelector('h1,h2,h3,h4,[role="heading"]');
+    const beforeOrigin = card.innerText.split(/country of origin/i);
+    const lines = beforeOrigin.length === 2 ? beforeOrigin[0].split(/\n/).reverse() : [];
+    const candidates = [
+      heading?.innerText,
+      ...anchors.map(link => link.innerText),
+      ...lines,
+      card.querySelector('img')?.alt,
+      ...anchors.map(link => link.title)
+    ];
+    const actions = /^(?:open on your store|view on (?:your )?store|visit store|shop now|open|view|edit(?: product)?|view details|import to prodxmart studio|live|product(?: image)?)$/i;
+    for (const candidate of candidates) {
+      const name = candidate?.replace(/\s+/g, ' ').trim();
+      if (!name || !/[\p{L}]/u.test(name)) continue;
+      if (actions.test(name.replace(/[^\p{L}\d]+$/u, '').trim())) continue;
+      return name;
+    }
+    return '';
+  }
+
   function readCard(card) {
     const text = card.innerText;
     const prices = factoriPrices(text);
     if (!prices) return null;
-    const heading = card.querySelector('h1,h2,h3,h4,[role="heading"]');
     const anchors = Array.from(card.querySelectorAll('a[href]'));
-    const productLink = anchors.find(a => a.innerText.trim().length > 5 && !/^(edit|view|details|import)/i.test(a.innerText.trim()));
-    const image = card.querySelector('img');
-    const beforeOrigin = text.split(/country of origin/i);
-    const titleLine = beforeOrigin.length === 2 ? beforeOrigin[0].trim().split(/\n/).pop() : '';
-    const name = (productLink?.title || heading?.innerText || productLink?.innerText || image?.alt || titleLine || '').trim();
+    const name = productName(card, anchors);
     if (!name) return null;
     const urls = anchors.filter(a=>/^https?:/.test(a.href)).map(a => new URL(a.href));
     const shop = urls.find(u => u.protocol === 'https:' && ['prodxmart.com','www.prodxmart.com'].includes(u.hostname) && u.pathname !== '/');

@@ -14,7 +14,7 @@ async function loadProducts() {
       return;
     }
     byId('product').replaceChildren(...cards.map((card, index) =>
-      new Option(card.name + ' · ₹' + card.price.toLocaleString('en-IN'), String(index))));
+      new Option([card.name, card.sku, '₹' + card.price.toLocaleString('en-IN')].filter(Boolean).join(' · '), String(index))));
     byId('status').textContent = 'Choose a product from the current page.';
     byId('listed').hidden = false;
   } catch {
