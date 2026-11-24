@@ -94,7 +94,7 @@ def catalogue(mode):
         issues=[]
         if cfg['category'] and mode=='store' and p['category'].casefold()!=cfg['category'].casefold(): issues.append('Outside category')
         if p['stock']<cfg['minimum_stock']: issues.append('Low stock')
-        if p['margin']<Decimal(str(cfg['minimum_margin_rupees'])): issues.append('Low margin')
+        if p['margin'] <= 0: issues.append('Low margin')
         if p['media_ok'].lower()!='yes': issues.append('Media permission missing')
         if not paths or not all(f.is_file() for f in paths): issues.append('Photo missing')
         if not p['feature_te']:

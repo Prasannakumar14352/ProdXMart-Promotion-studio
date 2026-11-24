@@ -37,11 +37,14 @@ class ProductWorkflow(unittest.TestCase):
             save(dict(self.product,version=p['version']))
         self.assertEqual(details('P01')['photos'],p['photos'])
 
-    def test_35_rupee_margin_is_eligible(self):
-        save(dict(self.product, price='385',cost='350',fees='0'))
-        self.assertEqual(engine.catalogue('store')['P01']['issues'], [])
-        save(dict(self.product, sku='P02',price='385',cost='350',fees='0.01'))
-        self.assertIn('Low margin',engine.catalogue('store')['P02']['issues'])
+    def test_only_nonpositive_unit_margins_trigger_low_margin(self):
+        # Selling price minus cost leaves ₹31 before fees.
+        cases = [('0', []), ('30.99', []), ('31', ['Low margin']), ('31.01', ['Low margin'])]
+        for index, (fees, expected_issues) in enumerate(cases):
+            with self.subTest(fees=fees):
+                sku = f'MARGIN-{index}'
+                save(dict(self.product, sku=sku, price='343', cost='312', fees=fees))
+                self.assertEqual(engine.catalogue('store')[sku]['issues'], expected_issues)
 
     def test_disconnected_reader_can_discover_public_gallery(self):
         url = 'https://prodxmart.com/products/maroon'
