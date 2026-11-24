@@ -1,0 +1,72 @@
+import base64
+import csv
+import json
+import tempfile
+import unittest
+from contextlib import ExitStack
+from pathlib import Path
+from unittest.mock import patch
+
+import engine
+from product_editor import details, save
+
+class ProductWorkflow(unittest.TestCase):
+    def setUp(self):
+        self.resources = ExitStack()
+        self.addCleanup(self.resources.close)
+        self.root = Path(self.resources.enter_context(tempfile.TemporaryDirectory()))
+        original = engine.ROOT
+        import shutil
+        shutil.copytree(original/'templates',self.root/'templates')
+        shutil.copy(original/'settings.json',self.root/'settings.json')
+        data=self.root/'data';data.mkdir()
+        self.resources.enter_context(patch.object(engine,'ROOT',self.root))
+        self.resources.enter_context(patch.object(engine,'DATA',data))
+        self.photo=base64.b64encode((original/'demo'/'grove-1.jpg').read_bytes()).decode()
+        self.product=dict(sku='P01',name='Notebook',category='Books',price='600',cost='190',fees='10',
+                          stock='5',product_url='https://prodxmart.com/product/notebook',
+                          new=[{'base64':self.photo}],media_ok=True)
+
+    def test_edit_retains_photos_and_rejects_stale_form(self):
+        save(self.product)
+        p=details('P01')
+        self.assertEqual(engine.catalogue('store')['P01']['issues'],[])
+        save(dict(self.product,new=[],keep=p['photos'],version=p['version'],stock='1'))
+        self.assertIn('Low stock',engine.catalogue('store')['P01']['issues'])
+        with self.assertRaisesRegex(ValueError,'latest version'):
+            save(dict(self.product,version=p['version']))
+        self.assertEqual(details('P01')['photos'],p['photos'])
+
+    def test_invalid_photo_does_not_create_partial_product(self):
+        with self.assertRaisesRegex(ValueError,'photo'):
+            save(dict(self.product,new=[{'base64':self.photo},{'base64':'QUJD'}]))
+        self.assertEqual(engine.catalogue('store'),{})
+
+    def test_draft_without_images_and_private_link(self):
+        save(dict(self.product,new=[],media_ok=False))
+        self.assertIn('Photo missing',engine.catalogue('store')['P01']['issues'])
+        with self.assertRaises(ValueError):
+            save(dict(self.product,sku='P02',new=[{'url':'https://127.0.0.1/test'}]))
+        self.assertNotIn('P02',engine.catalogue('store'))
+
+    def test_other_product_edit_preserves_verification_time(self):
+        save(self.product)
+        original=engine.catalogue('store')['P01']['_studio_verified_at']
+        save(dict(self.product,sku='P02'))
+        self.assertEqual(engine.catalogue('store')['P01']['_studio_verified_at'],original)
+
+    def test_imported_extra_columns_and_custom_headers(self):
+        engine.directory('store')
+        cfg=engine.config();cfg['catalogue_columns']={'sku':'Item Code'}
+        (self.root/'settings.json').write_text(json.dumps(cfg))
+        path=self.root/'store/catalogue.csv'
+        heads=['Item Code' if h=='sku' else h for h in engine.HEADERS]+['supplier_note']
+        with path.open('w',newline='') as f:
+            w=csv.DictWriter(f,fieldnames=heads);w.writeheader()
+            w.writerow({**{k:self.product.get(k,'') for k in engine.HEADERS if k!='sku'},'Item Code':'IMPORT','supplier_note':'Keep'})
+        old=details('IMPORT')
+        save(dict(self.product,sku='IMPORT',version=old['version']))
+        with path.open(encoding='utf-8-sig') as f:self.assertEqual(next(csv.DictReader(f))['supplier_note'],'Keep')
+
+if __name__=='__main__':
+    unittest.main()

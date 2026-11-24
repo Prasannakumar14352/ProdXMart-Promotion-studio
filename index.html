@@ -1,0 +1,28 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProdXMart · Promotion studio</title><link rel="stylesheet" href="/style.css"></head>
+<body><header><div class="wrap top"><div class="brand"><b>ProdXMart</b><span>Promotion Studio</span></div><label>Workspace <select id="mode"><option value="store">My store</option><option value="demo">Demo catalogue</option></select></label></div></header>
+<main class="wrap"><section class="intro"><div><h1 id="page-title">Product catalogue</h1><p id="sub"></p></div><div class="cardactions"><button id="add" class="primary">＋ Add product</button><button id="generate">Generate weekly batch</button></div></section>
+<div id="feedback" role="status"></div>
+<nav aria-label="Studio sections"><button data-tab="catalogue" class="active">Products</button><button data-tab="queue">Reel queue</button><button data-tab="report">Sales report</button></nav>
+<section id="catalogue"><div class="filterbar"><label><span class="sr">Search products</span><input type="search" id="search" placeholder="Search by name, SKU or category"></label><label><span class="sr">Promotion readiness</span><select id="filter"><option value="">All products</option><option value="ready">Ready to promote</option><option value="hold">Needs attention</option></select></label><small id="count"></small></div><div id="products"></div></section>
+<section id="queue" hidden><div class="actions"><label>First post · India time <input type="datetime-local" id="start"></label><button id="approve">Approve all drafts</button><a id="bio" hidden>Export shop links</a></div><div id="cards" class="cards"></div></section>
+<section id="report" hidden><div id="metrics" class="metrics"></div><h2>Sales by campaign</h2><p>Campaigns without an order match appear as unattributed.</p><div id="campaigns"></div></section>
+<footer><span id="conn"></span><button class="plain" id="refresh">Refresh data</button></footer></main>
+<dialog id="editor" aria-labelledby="form-title"><form id="product-form"><div class="form-head"><h2 id="form-title">Add product</h2><button type="button" id="close" aria-label="Close editor">×</button></div>
+<div class="form-scroll"><fieldset><legend>Product details</legend>
+<label>Product page link<input name="product_url" type="url" required placeholder="https://prodxmart.com/product/…"></label>
+<label>Product name<input name="name" maxlength="180" required></label>
+<div class="pair"><label>SKU<input name="sku" maxlength="120" required></label><label>Category<input name="category" maxlength="120" required list="categories"></label><datalist id="categories"></datalist></div></fieldset>
+<fieldset><legend>Pricing and stock</legend><div class="pair">
+<label>Selling price (₹)<input name="price" type="number" step=".01" min=".01" required></label>
+<label>Cost per unit (₹)<input name="cost" type="number" step=".01" min="0" required></label>
+<label>Direct fees per unit (₹)<input name="fees" type="number" step=".01" min="0" value="0" required></label>
+<label>Available units<input name="stock" type="number" step="1" min="0" required></label>
+</div><p class="margin" id="margin" aria-live="polite"></p></fieldset>
+<fieldset><legend>Reel photos</legend><p class="hint">Upload photos or paste direct image links. The first photo is the cover. You can save a product and add its photos later.</p>
+<label class="picker">Choose photos<input type="file" id="uploads" multiple accept="image/jpeg,image/png,image/webp"></label>
+<div id="photo-list" class="photos"></div>
+<label>Image links <small>Optional · one per line</small><textarea id="image-links" rows="2" placeholder="https://…/product-photo.jpg"></textarea></label>
+<label class="check"><input type="checkbox" name="media_ok">I have permission to use these photos for promotion.</label>
+<label>Telugu product feature <small>Optional</small><textarea name="feature_te" rows="2" maxlength="300"></textarea></label></fieldset>
+</div><div class="form-end"><div role="alert" id="form-error"></div><button type="button" id="cancel">Cancel</button><button class="primary" id="save">Save product</button></div></form></dialog>
+<template id="card"><article><div class="video"><video preload="metadata" controls playsinline></video></div><div class="body"><div class="meta"><small class="sku"></small><small class="status"></small></div><h3></h3><p class="caption" lang="te"></p><p class="time"></p><p class="note"></p><div class="cardactions"></div></div></article></template><script src="/ui.js"></script><script src="/editor.js"></script></body></html>

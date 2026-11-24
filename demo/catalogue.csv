@@ -1,0 +1,6 @@
+sku,name,category,price,cost,fees,stock,feature_te,product_url,photos,media_ok
+D01,Grove Notebook,Stationery,449,180,29,18,ఆకుపచ్చ రంగులో నోట్‌బుక్,https://example.com/grove,grove-1.jpg|grove-2.jpg,yes
+D02,Orbit Notebook,Stationery,549,259,35,12,కవర్ మీద గుండ్రని డిజైన్,https://example.com/orbit,orbit-1.jpg|orbit-2.jpg,yes
+D03,Tide Notebook,Stationery,399,170,22,10,అలల డిజైన్ ఉన్న కవర్,https://example.com/tide,tide-1.jpg|tide-2.jpg,yes
+D04,Ember Notebook,Stationery,349,178,23,8,ఎరుపు రంగు కవర్,https://example.com/ember,ember-1.jpg|ember-2.jpg,yes
+D05,Low stock example,Stationery,899,450,40,1,నోట్‌బుక్,https://example.com/low,grove-1.jpg,yes
