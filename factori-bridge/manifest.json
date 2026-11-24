@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ProdXMart product importer",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Open a product from your Factori retailer catalogue in your local Promotion Studio.",
   "content_scripts": [
     {
@@ -9,13 +9,40 @@
         "https://retailing.factori.com/*"
       ],
       "js": [
+        "fields.js",
         "pricing.js",
         "products.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://prodxmart.com/*",
+        "https://www.prodxmart.com/*"
+      ],
+      "js": [
+        "fields.js",
+        "storefront.js"
+      ]
+    },
+    {
+      "matches": [
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "local.js"
       ]
     }
   ],
   "action": {
     "default_title": "Import to ProdXMart Studio",
     "default_popup": "popup.html"
-  }
+  },
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "host_permissions": [
+    "https://cdn.factori.com/*",
+    "https://prodxmart.com/*",
+    "https://www.prodxmart.com/*"
+  ]
 }

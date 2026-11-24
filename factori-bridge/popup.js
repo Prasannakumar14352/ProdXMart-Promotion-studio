@@ -46,7 +46,7 @@ byId('use').onclick = () => {
     byId('error').textContent = 'Enter the product name and paste exactly one card with both labelled rupee amounts.';
     return;
   }
-  const sku = text.match(/\bSKUFACTORI\d+\b/i)?.[0].toUpperCase() || '';
-  review({name, sku, product_url: '', ...prices});
+  const sku = factoriSku(text);
+  review({name, sku, stock:factoriStock(text), product_url: '', ...prices});
 };
 loadProducts();

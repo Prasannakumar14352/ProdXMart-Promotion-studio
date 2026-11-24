@@ -77,16 +77,28 @@ async function openEditor(sku, imported){
     $('#categories').replaceChildren(...[...new Set((state?.products||[]).map(x=>x.category))].map(c=>element('option',c)));
     if(p)for(const k of ['product_url','sku','name','category','price','cost','fees','stock','feature_te'])form.elements[k].value=p[k];
     form.elements.sku.readOnly=!!p;form.elements.media_ok.checked=p?.media_ok?.toLowerCase()==='yes';
+    selection=(p?.photos||[]).map((name,index)=>({name,preview:'/photo?'+new URLSearchParams({mode:'store',sku,index})}));
     if(imported){
       form.elements.price.value=imported.price;
       form.elements.cost.value=imported.cost;
-      if(!p){
-        form.elements.name.value=imported.name;
-        form.elements.sku.value=imported.sku;
-        form.elements.product_url.value=imported.product_url;
+      if(imported.name && (!p || imported.fullName || !/…|\.\.\./.test(imported.name)))form.elements.name.value=imported.name;
+      if(!p)form.elements.sku.value=imported.sku || '';
+      if(imported.product_url)form.elements.product_url.value=imported.product_url;
+      if(Number.isSafeInteger(imported.stock) && imported.stock>=0)form.elements.stock.value=imported.stock;
+      const urls=(imported.images || []).slice(0,Math.max(0,6-selection.length));
+      const results=await Promise.allSettled(urls.map(async url=>{
+        const data=await readerRequest('store-photo',url);
+        const bytes=Uint8Array.from(atob(data.base64),char=>char.charCodeAt(0));
+        return new File([bytes],'Factori product photo',{type:data.mime});
+      }));
+      if(mode()!=='store' || importedCard!==imported)return;
+      for(const result of results){
+        if(result.status==='fulfilled')selection.push({file:result.value,preview:URL.createObjectURL(result.value)});
       }
+      if(results.some(r=>r.status==='fulfilled'))form.elements.media_ok.checked=false;
+      const failed=results.filter(r=>r.status==='rejected');
+      if(failed.length)$('#form-error').textContent=failed.length+' photo(s) could not be imported. '+failed[0].reason.message+' You can choose the file or paste the photo.';
     }
-    selection=(p?.photos||[]).map((name,index)=>({name,preview:'/photo?'+new URLSearchParams({mode:'store',sku,index})}));
     showPhotos();margin();dialog.showModal();dialog.querySelector('.form-scroll').scrollTop=0;
     (imported && p ? form.elements.price : form.elements.product_url).focus();
   }catch(e){notice(e.message,true);}
@@ -138,6 +150,26 @@ form.onsubmit=async e=>{
   finally{saving=false;$('#save').disabled=false;$('#save').textContent='Save product';}
 };
 let importedCard = null;
+function readerRequest(type,url){
+  if(!document.documentElement.dataset.factoriReader)return Promise.reject(Error('Reload extension 1.2.0 or later and refresh Studio.'));
+  return new Promise((resolve,reject)=>{
+    const id=crypto.randomUUID();
+    function finish(){
+      clearTimeout(timer);
+      window.removeEventListener('message',receive);
+    }
+    function receive(event){
+      if(event.source!==window || event.origin!==location.origin || event.data?.studioResponse!==id)return;
+      finish();
+      if(event.data.value)resolve(event.data.value);
+      else reject(Error(event.data.error || 'Extension unavailable.'));
+    }
+    const timer=setTimeout(()=>{finish();reject(Error('The product reader timed out.'));},20000);
+    window.addEventListener('message',receive);
+    window.postMessage({studioRequest:true,id,type,url},location.origin);
+  });
+}
+
 function readFactoriImport(){
   const prefix = '#factori=';
   if(!location.hash.startsWith(prefix))return;
@@ -148,7 +180,14 @@ function readFactoriImport(){
       !Number.isFinite(card.price) || card.price <= 0 || !Number.isFinite(card.cost) || card.cost < 0){
     throw Error('Incomplete Factori pricing. Reopen the product card and try again.');
   }
+  card.images=Array.isArray(card.images)?card.images.filter(url=>typeof url==='string').slice(0,6):[];
   importedCard = card;
+  $('#factori-url').value=card.product_url || '';
+  displayImport(card);
+  if($('#factori-url').value)loadStoreDetails();
+  else $('#factori-status').textContent='Paste the product link from your store to read its name, SKU, available units and gallery.';
+}
+function displayImport(card){
   const target = $('#factori-target');
   target.replaceChildren(new Option('Choose a product', ''), new Option('Add as a new product', 'new'));
   const sameName = state.products.filter(product => product.name === card.name);
@@ -158,17 +197,59 @@ function readFactoriImport(){
     if(card.sku && product.sku.toUpperCase() !== card.sku)continue;
     target.add(new Option(product.name + ' · ' + product.sku, 'sku:' + product.sku));
   }
-  if(match)target.value='sku:' + match.sku;
+  if(match){
+    target.value='sku:' + match.sku;
+    if(!$('#factori-url').value)$('#factori-url').value=match.product_url || '';
+  }
   else if(!state.products.length || card.sku)target.value='new';
   $('#factori-values').textContent = card.name + ' · Customer pays ' + money(card.price) +
     ' · Factori price ' + money(card.cost) + (Number.isFinite(card.profit) ? ' · Factori profit per sale ' + money(card.profit) : '');
+  $('#factori-values').textContent+=' · SKU '+(card.sku || 'unavailable')+' · Units '+(card.stock ?? 'unavailable')+' · Photos '+card.images.length;
   $('#factori-apply').disabled=!target.value;
   $('#factori-review').hidden=false;
 }
-$('#factori-target').onchange=e=>{$('#factori-apply').disabled=!e.target.value;};
-$('#factori-apply').onclick=()=>{
+function importBusy(busy){
+  for(const id of ['factori-target','factori-url','factori-read','factori-dismiss'])$('#'+id).disabled=busy;
+  $('#factori-apply').disabled=busy || !$('#factori-target').value;
+}
+async function loadStoreDetails(){
+  const card=importedCard;
+  const url=$('#factori-url').value.trim();
+  if(!card || !url)return;
+  importBusy(true);
+  $('#factori-status').textContent='Reading the product page…';
+  try{
+    if(!document.documentElement.dataset.factoriReader)await new Promise(resolve=>setTimeout(resolve,450));
+    const details=await readerRequest('store-details',url);
+    if(card!==importedCard)return;
+    if(card.sku && details.sku && card.sku.toUpperCase()!==details.sku.toUpperCase())
+      throw Error('The page SKU differs from the selected Factori card. Check the link.');
+    card.name=details.name || card.name;
+    card.fullName=Boolean(details.name);
+    card.sku=details.sku || card.sku;
+    card.stock=details.stock ?? card.stock;
+    card.images=[...new Set([...details.images,...card.images])].slice(0,6);
+    card.product_url=details.product_url;
+    displayImport(card);
+    $('#factori-status').textContent='Review the imported details. Enter any unavailable fields in the editor.';
+  }catch(error){$('#factori-status').textContent=error.message;}
+  finally{importBusy(false);}
+}
+$('#factori-read').onclick=loadStoreDetails;
+$('#factori-target').onchange=e=>{
+  $('#factori-apply').disabled=!e.target.value;
+  if(!importedCard?.product_url){
+    const product=state.products.find(p=>'sku:'+p.sku===e.target.value);
+    $('#factori-url').value=product?.product_url || '';
+  }
+};
+$('#factori-apply').onclick=async()=>{
   const target=$('#factori-target').value;
-  if(importedCard && target)openEditor(target==='new' ? null : target.slice(4), importedCard);
+  if(!importedCard || !target)return;
+  importBusy(true);
+  $('#factori-status').textContent='Preparing the product and its photos…';
+  try{await openEditor(target==='new' ? null : target.slice(4),importedCard);}
+  finally{importBusy(false);$('#factori-status').textContent='Review the editor and save the product.';}
 };
 $('#factori-dismiss').onclick=()=>{importedCard=null;$('#factori-review').hidden=true;};
 refresh().then(readFactoriImport).catch(e=>notice(e.message,true));

@@ -6,11 +6,11 @@
     const beforeOrigin = card.innerText.split(/country of origin/i);
     const lines = beforeOrigin.length === 2 ? beforeOrigin[0].split(/\n/).reverse() : [];
     const candidates = [
-      heading?.innerText,
-      ...anchors.map(link => link.innerText),
-      ...lines,
+      heading?.title, heading?.innerText,
+      ...anchors.map(link => link.title),
       card.querySelector('img')?.alt,
-      ...anchors.map(link => link.title)
+      ...anchors.map(link => link.innerText),
+      ...lines
     ];
     const actions = /^(?:open on your store|view on (?:your )?store|visit store|shop now|open|view|edit(?: product)?|view details|import to prodxmart studio|live|product(?: image)?)$/i;
     for (const candidate of candidates) {
@@ -31,8 +31,10 @@
     if (!name) return null;
     const urls = anchors.filter(a=>/^https?:/.test(a.href)).map(a => new URL(a.href));
     const shop = urls.find(u => u.protocol === 'https:' && ['prodxmart.com','www.prodxmart.com'].includes(u.hostname) && u.pathname !== '/');
-    const sku = (text.match(/\bSKUFACTORI\d+\b/i) || urls.map(u=>u.pathname).join(' ').match(/\bSKUFACTORI\d+\b/i))?.[0]?.toUpperCase() || '';
-    return {name, sku, product_url: shop?.href || '', ...prices};
+    const sku = factoriSku(text, urls.map(u=>u.pathname + ' ' + u.search).join(' '));
+    const images = [...new Set(Array.from(card.querySelectorAll('img'), img =>
+      productImageUrl(img.currentSrc || img.dataset?.src || img.src, location.href)).filter(Boolean))].slice(0,6);
+    return {name, sku, stock:factoriStock(text), images, product_url: shop?.href || '', ...prices};
   }
 
   function findCard(start) {
@@ -40,7 +42,16 @@
       const text = card.innerText || '';
       if ((text.match(/\bfactori\s+price\b/gi) || []).length > 1) return null;
       if (!/factori\s+price/i.test(text)) continue;
-      if (/customer\s+pays/i.test(text) && readCard(card)) return card;
+      if (/customer\s+pays/i.test(text) && readCard(card)) {
+        let parent = card.parentElement;
+        while (parent && parent !== document.body && !card.querySelector('img')) {
+          if ((parent.innerText.match(/factori\s+price/gi) || []).length !== 1) break;
+          if (parent.matches('main,section,nav')) break;
+          card = parent;
+          parent = card.parentElement;
+        }
+        return card;
+      }
     }
     return null;
   }
