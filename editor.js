@@ -86,14 +86,25 @@ function closeForm(){if(!saving)dialog.close();}
 $('#cancel').onclick=closeForm;$('#close').onclick=closeForm;
 dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});
 dialog.addEventListener('close',()=>{selection.filter(x=>x.file).forEach(x=>URL.revokeObjectURL(x.preview));selection=[];});
-$('#uploads').onchange=e=>{
-  const files=[...e.target.files];e.target.value='';$('#form-error').textContent='';
+function addPhotos(files){
+  if(saving)return;
+  $('#form-error').textContent='';
   if(selection.length+files.length>6 || files.some(f=>f.size>5*1024*1024)){
     $('#form-error').textContent='Select up to six photos, no larger than 5 MB each.';return;
   }
   for(const file of files)selection.push({file,preview:URL.createObjectURL(file)});
   showPhotos();
+}
+$('#uploads').onchange=e=>{
+  addPhotos([...e.target.files]);
+  e.target.value='';
 };
+dialog.addEventListener('paste',event=>{
+  const photos=Array.from(event.clipboardData?.files||[]).filter(file=>file.type.startsWith('image/'));
+  if(!photos.length)return;
+  event.preventDefault();
+  addPhotos(photos);
+});
 function encoded(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();reader.onerror=()=>reject(Error('Could not read '+file.name));

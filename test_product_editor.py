@@ -42,6 +42,17 @@ class ProductWorkflow(unittest.TestCase):
             save(dict(self.product,new=[{'base64':self.photo},{'base64':'QUJD'}]))
         self.assertEqual(engine.catalogue('store'),{})
 
+    def test_failed_link_identifies_photo_and_can_be_replaced_with_upload(self):
+        upload = {'base64': self.photo}
+        sources = [upload, {'url': 'https://example.com/a.jpg'}, {'url': 'https://example.com/b.jpg'}]
+        with patch('product_editor.public_image', side_effect=[
+                base64.b64decode(self.photo), ValueError('The image host returned HTTP 404.')]):
+            with self.assertRaisesRegex(ValueError, 'Image link 2: .*404'):
+                save(dict(self.product, new=sources))
+        self.assertEqual(engine.catalogue('store'), {})
+        save(dict(self.product, new=[upload]))
+        self.assertEqual(len(details('P01')['photos']), 1)
+
     def test_draft_without_images_and_private_link(self):
         save(dict(self.product,new=[],media_ok=False))
         self.assertIn('Photo missing',engine.catalogue('store')['P01']['issues'])

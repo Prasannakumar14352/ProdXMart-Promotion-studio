@@ -39,12 +39,13 @@ def public_image(url, redirects=0):
             path = parsed.path or '/'
             if parsed.query:
                 path += '?' + parsed.query
-            connection.request('GET', quote(path, safe="/%?=&:@!$'()*+,;~-"), headers={'Accept':'image/*'})
+            connection.request('GET', quote(path, safe="/%?=&:@!$'()*+,;~-"),
+                               headers={'Accept': 'image/*', 'User-Agent': 'ProdXMart-Promotion-Studio/1.0'})
             response = connection.getresponse()
             if response.status in (301,302,303,307,308) and response.getheader('Location'):
                 return public_image(urljoin(url,response.getheader('Location')),redirects+1)
             if response.status != 200:
-                raise ValueError('Image host refused the download. Upload the file instead.')
+                raise ValueError(f'The image host returned HTTP {response.status}.')
             return response.read(MAX_IMAGE + 1)
     finally:
         connection.close()
@@ -55,7 +56,7 @@ def photo_bytes(item):
         try:
             raw = public_image(item['url'])
         except (OSError, http.client.HTTPException):
-            raise ValueError('Could not download this image. Upload a JPG, PNG or WebP file instead.') from None
+            raise ValueError('Could not reach the image host or finish the download.') from None
     else:
         raw = base64.b64decode(item.get('base64', ''), validate=True)
     if not 0 < len(raw) <= MAX_IMAGE:
@@ -134,7 +135,17 @@ def save(data):
         raise ValueError('Choose up to six new photos.')
     if len(kept)+len(new)>MAX_PHOTOS and new:
         raise ValueError('Keep up to six photos before adding another.')
-    photos = [photo_bytes(item) for item in new]
+    photos = []
+    link_number = 0
+    for item in new:
+        if 'url' not in item:
+            photos.append(photo_bytes(item))
+            continue
+        link_number += 1
+        try:
+            photos.append(photo_bytes(item))
+        except ValueError as error:
+            raise ValueError(f'Image link {link_number}: {error} Remove that link, then paste the copied photo or choose its file.') from None
     path = engine.directory('store')/'catalogue.csv'
     mapping = engine.config()['catalogue_columns']
     col = lambda k:mapping.get(k,k)
