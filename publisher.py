@@ -7,7 +7,7 @@ from contextlib import closing
 from urllib.error import HTTPError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
-from engine import LOCK, OUT, db, now, reason
+from engine import LOCK, db, now, reason, video_path
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -65,7 +65,7 @@ def run_due():
                 if not container.isdecimal() or urlsplit(uri).netloc!='rupload.facebook.com' or urlsplit(uri).scheme!='https':
                     raise ValueError('Unexpected upload destination from Meta.')
                 update(c,j['id'],'Processing',container=container)
-                uploaded=send(uri,token,file=OUT/(j['id']+'.mp4'))
+                uploaded=send(uri,token,file=video_path(c, j['id']))
                 if uploaded.get('success') is not True:raise ValueError('Meta did not confirm the upload.')
                 for _ in range(12):
                     status=send(base+container+'?fields=status_code',token).get('status_code')

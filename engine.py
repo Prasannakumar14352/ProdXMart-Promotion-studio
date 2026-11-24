@@ -44,6 +44,7 @@ def db():
         id TEXT PRIMARY KEY, mode TEXT, week TEXT, sku TEXT, name TEXT, snapshot TEXT,
         caption TEXT, link TEXT, status TEXT, due TEXT DEFAULT '', note TEXT DEFAULT '',
         container TEXT DEFAULT '', published_id TEXT DEFAULT '', created TEXT)''')
+    con.execute("CREATE TABLE IF NOT EXISTS reel_assets (job_id TEXT PRIMARY KEY, asset_id TEXT NOT NULL)")
     return con
 
 
@@ -123,6 +124,43 @@ def tracking(url, jid):
     return urlunsplit(u._replace(query=urlencode(args)))
 
 
+def reel_caption(p, mode):
+    caption = f"{p['name']} · ₹{p['price']:,.2f}\n{p['feature_te']}\nవివరాల కోసం prodxmart.com చూడండి."
+    return '[Sample preview]\n' + caption if mode == 'demo' else caption
+
+
+def video_path(con, jid):
+    row = con.execute('SELECT asset_id FROM reel_assets WHERE job_id=?', (jid,)).fetchone()
+    return OUT / ((row[0] if row else jid) + '.mp4')
+
+
+def remake(mode, jid):
+    # Swap the file reference and reviewed product details in one transaction.
+    with LOCK, closing(db()) as con, con:
+        con.execute('BEGIN IMMEDIATE')
+        job = con.execute('SELECT sku, status FROM jobs WHERE id=? AND mode=?', (jid, mode)).fetchone()
+        if not job or job['status'] != 'Draft':
+            raise ValueError('Only a draft can be remade. Refresh the Reel queue.')
+        p = catalogue(mode).get(job['sku'])
+        if not p or p['issues']:
+            raise ValueError('Review the product before remaking this Reel: ' +
+                             (', '.join(p['issues']) if p else 'Product removed.'))
+        previous = video_path(con, jid)
+        asset_id = uuid.uuid4().hex
+        target = OUT / (asset_id + '.mp4')
+        try:
+            render(p, target, mode == 'demo')
+            con.execute('INSERT OR REPLACE INTO reel_assets VALUES (?,?)', (jid, asset_id))
+            con.execute('UPDATE jobs SET name=?, snapshot=?, caption=?, link=?, note=? WHERE id=?',
+                        (p['name'], signature(p), reel_caption(p, mode), tracking(p['product_url'], jid), '', jid))
+            con.commit()
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
+        previous.unlink(missing_ok=True)
+    return 'Reel remade with music. Play the draft to review it.'
+
+
 def batch(mode):
     with LOCK, closing(db()) as con, con:
         # Reserve this batch in a transaction before rendering to avoid duplicate work.
@@ -140,16 +178,8 @@ def batch(mode):
             for p in candidates[:max(0, config()['weekly_slots']-count)]:
                 jid=uuid.uuid4().hex[:16]
                 target=OUT/(jid+'.mp4');created.append(target)
-                sample=ROOT/'preview'/(p['sku']+'.mp4')
-                # Demo cache is for the shipped, unchanged creative only.
-                manifest=ROOT/'preview'/'index.json'
-                if mode=='demo' and sample.exists() and manifest.exists() and json.loads(manifest.read_text()).get(p['sku'])==signature(p):
-                    import shutil
-                    shutil.copyfile(sample,target)
-                else:
-                    render(p,target,mode=='demo')
-                caption=f"{p['name']} · ₹{p['price']:,.2f}\n{p['feature_te']}\nవివరాల కోసం prodxmart.com చూడండి."
-                if mode=='demo':caption='[Sample preview]\n'+caption
+                render(p, target, mode == 'demo')
+                caption = reel_caption(p, mode)
                 con.execute('INSERT INTO jobs(id,mode,week,sku,name,snapshot,caption,link,status,created) VALUES(?,?,?,?,?,?,?,?,?,?)',
                     (jid,mode,week,p['sku'],p['name'],signature(p),caption,tracking(p['product_url'],jid),'Draft',now().isoformat()))
             con.commit()

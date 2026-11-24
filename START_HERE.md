@@ -5,9 +5,9 @@
 1. Extract the complete ZIP into a writable folder on your computer. Install 64-bit Python 3.11 or 3.12 if needed.
 2. Double-click **Start_Windows.bat**. The first run downloads Pillow and imageio-ffmpeg into a project-specific environment. It uses system FFmpeg when available, otherwise the packaged executable. Keep the terminal open while using the studio.
 3. Open **Demo catalogue → Generate weekly batch**. Play a Reel, download its MP4, or skip it and generate again to see the next eligible product. Three drafts fit the default weekly batch. The fourth sample is a replacement. One additional sample is intentionally low on stock.
-4. Choose the first posting time in India time and press **Approve all drafts**. The batch is spaced two days apart. Use **Refresh data** to see status changes. When a demo slot arrives, it becomes Simulated. You can also play the included preview/D02.mp4 without installing Python.
+4. Choose the first posting time in India time and press **Approve all drafts**. The batch is spaced two days apart. Use **Refresh data** to see status changes. When a demo slot arrives, it becomes Simulated. You can also play the original silent preview/D02.mp4 without installing Python.
 
-The studio opens in My store. Use the workspace selector to try the demo. Demo product illustrations and prices are fictional. Store orders, sales and queues are kept separate. Videos use on-screen Telugu text and have no audio track.
+The studio opens in My store. Use the workspace selector to try the demo. Demo product illustrations and prices are fictional. Store orders, sales and queues are kept separate. New Reels use Telugu on-screen copy, catalogue photos and an original instrumental track generated locally. In Reel queue, choose **Remake with music** on an existing Draft to render it again with the current product photos and details. Use the player volume control to hear it.
 
 ## Add products inside the studio
 

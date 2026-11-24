@@ -42,6 +42,10 @@ async function refresh(){
     const b=element('button',label);b.onclick=()=>change(action,[j.id]);buttons.append(b);
    }
   }
+  if(j.status==='Draft'){
+   const remake=element('button','Remake with music');
+   remake.onclick=()=>post('/remake',{id:j.id});buttons.append(remake);
+  }
   const file=element('a','Save video');file.href='/video/'+j.id+'.mp4';file.download=j.id+'.mp4';buttons.append(file);
   const link=element('a','Product link');link.href=j.link;link.target='_blank';link.rel='noopener';buttons.append(link);
   $('#cards').append(a);
@@ -51,7 +55,7 @@ async function refresh(){
 }
 async function post(path,data){
  if(busy)return;busy=true;document.body.setAttribute('aria-busy','true');$('#mode').disabled=true;$('#generate').disabled=true;
- notice(path==='/generate'?'Preparing videos…':'Updating queue…');
+ notice(path==='/remake'?'Remaking your Reel with music…':path==='/generate'?'Preparing videos…':'Updating queue…');
  try{const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...data,mode:mode()})}),j=await r.json();if(!r.ok)throw Error(j.error);await refresh();if(path==='/generate')openTab('queue');notice(j.message);}
  catch(e){notice(e.message,true);}finally{busy=false;$('#mode').disabled=false;$('#generate').disabled=false;document.body.removeAttribute('aria-busy');}
 }

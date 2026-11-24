@@ -8,7 +8,7 @@ A local Python app for managing a ProdXMart catalogue, preparing Telugu product 
 2. Double-click **Start_Windows.bat**. The launcher installs dependencies on its first run and opens the local dashboard.
 3. In **My store → Products**, choose **Add product**. Paste the product page link and enter its name, SKU, category, price, unit cost, fees and stock.
 4. Upload photos or paste direct HTTPS image links, set the promotion permission, and save. Review the readiness column, then choose **Generate weekly batch**.
-5. In **Reel queue**, preview or save the MP4s. Approval queues the Reels for the times shown in India time. Live publishing requires your own Meta configuration.
+5. In **Reel queue**, preview or save the MP4s. New Reels include music. Choose **Remake with music** to update an existing draft in its current weekly slot. Approval queues the Reels for the times shown in India time. Live publishing requires your own Meta configuration.
 
 Select **Demo catalogue** to try it with fictional stationery and sample MP4s. Generating drafts, managing products and testing the demo require no paid AI API or Factori connection.
 

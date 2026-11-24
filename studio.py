@@ -12,7 +12,7 @@ from contextlib import closing
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
-from engine import ROOT, OUT, batch, catalogue, db, decide, directory, earnings, now, records
+from engine import ROOT, LOCK, batch, catalogue, db, decide, directory, earnings, now, records, remake, video_path
 from publisher import run_due, enabled
 from product_editor import details, photo_bytes, save, store_photos
 
@@ -86,9 +86,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(page,'text/html; charset=utf-8',headers={'Content-Disposition':'attachment; filename="shop-the-reels.html"'})
             vid=re.fullmatch(r'/video/([0-9a-f]{16})\.mp4',u.path)
             if vid:
-                f=OUT/(vid[1]+'.mp4')
-                if not f.is_file():return self.respond('Missing reel','text/plain',404)
-                return self.respond(f.read_bytes(),'video/mp4')
+                with LOCK, closing(db()) as con:
+                    f = video_path(con, vid[1])
+                    if not f.is_file():return self.respond('Missing reel','text/plain',404)
+                    body = f.read_bytes()
+                return self.respond(body,'video/mp4')
             return self.respond('Unknown path','text/plain',404)
         except Exception as e:self.respond({'error':str(e)},code=400)
 
@@ -109,6 +111,7 @@ class Handler(BaseHTTPRequestHandler):
                 if mode!='store':raise ValueError('Switch to My store to edit products.')
                 msg=save(data)
             elif self.path=='/generate':msg=batch(mode)
+            elif self.path=='/remake':msg=remake(mode,data['id'])
             elif self.path=='/decide':msg=decide(mode,data['action'],data['ids'],data.get('start',''))
             else:return self.respond({'error':'Unknown action'},code=404)
             return self.respond({'message':msg})
