@@ -57,6 +57,25 @@ class ProductWorkflow(unittest.TestCase):
             self.assertEqual(store_photos(url,'SMP787747','Maroon shirt')['images'],
                              ['https://prodxmart.com/front.jpg','https://prodxmart.com/back.jpg'])
 
+    def test_listing_gallery_reads_all_angles_from_exact_slug(self):
+        slug = 'grey-khadi-bag-SMP4618'
+        url = 'https://prodxmart.com/product/' + slug
+        images = ['https://cdn.factori.com/' + s + '.webp' for s in ('front', 'back', 'inside', 'details')]
+        row = {'rsp_slug_url':slug, 'rsp_org_product_id':8432, 'rsp_id':1000004618,
+               'rsp_multi_images':json.dumps(images), 'rsp_img_path':images[0]}
+        payload = {'success':True, 'data':[dict(row, rsp_slug_url='other', rsp_multi_images=['/unrelated.jpg']), row]}
+        with patch('product_editor.fetch_public',return_value=(json.dumps(payload).encode(),url)) as fetch:
+            got = store_photos(url, 'SKUFACTORI8432', 'Grey Khadi bag')
+            fetch.assert_called_once_with('https://prodxmart.com/api/v1/products/product/'+slug+'?domain=prodxmart.com', product_page=True)
+        self.assertEqual(got['images'], images)
+        self.assertCountEqual(got['identifiers'], ['SKUFACTORI8432','1000004618','SMP4618'])
+
+    def test_unavailable_product_record_falls_back_to_page(self):
+        url = 'https://prodxmart.com/product/notebook'
+        html = b'<img alt="Notebook" src="/front.jpg">'
+        with patch('product_editor.fetch_public', side_effect=[OSError('offline'), (html,url)]):
+            self.assertEqual(store_photos(url,'P01','Notebook')['images'], ['https://prodxmart.com/front.jpg'])
+
     def test_invalid_photo_does_not_create_partial_product(self):
         with self.assertRaisesRegex(ValueError,'photo'):
             save(dict(self.product,new=[{'base64':self.photo},{'base64':'QUJD'}]))

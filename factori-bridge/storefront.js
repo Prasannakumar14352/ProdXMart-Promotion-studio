@@ -25,10 +25,20 @@ function storeDetails() {
     const url = productImageUrl(value, location.href);
     if (url && !images.includes(url) && images.length < 6) images.push(url);
   }
+  // The thumbnail rail is next to the product details and preserves cover order.
+  const gallery = document.querySelector('section[aria-label="Product images"], .sf-pdp-gal');
+  if (gallery) {
+    for (const img of gallery.querySelectorAll('.sf-pdp-thumbs img, button[aria-label^="Image " i] img')) {
+      add(productImageSource(img, location.href));
+    }
+    for (const img of gallery.querySelectorAll('.sf-pdp-ph:not([aria-hidden="true"]) img')) {
+      add(productImageSource(img, location.href));
+    }
+  }
   for (const item of [product?.image].flat()) add(typeof item === 'string' ? item : item?.contentUrl || item?.url);
-  add(document.querySelector('meta[property="og:image"]')?.content);
+  if (!images.length) add(document.querySelector('meta[property="og:image"]')?.content);
   const numericSku = /^(?:SKUFACTORI|SMP)(\d+)$/i.exec(sku)?.[1];
-  for (const img of scope.querySelectorAll('img')) {
+  for (const img of gallery ? [] : scope.querySelectorAll('img')) {
     const src = productImageSource(img, location.href);
     const inGallery = img.closest('[class*="gallery" i],[id*="gallery" i],[class*="thumbnail" i],[class*="product-image" i]');
     if (img.closest('[class*="related" i],[class*="recommend" i]')) continue;

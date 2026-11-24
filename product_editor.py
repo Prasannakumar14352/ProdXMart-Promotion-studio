@@ -14,7 +14,7 @@ from contextlib import closing
 from decimal import InvalidOperation
 from html.parser import HTMLParser
 from ipaddress import ip_address
-from urllib.parse import urlsplit, urljoin, quote
+from urllib.parse import urlsplit, urljoin, quote, unquote
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 import engine
@@ -46,8 +46,9 @@ def fetch_public(url, redirects=0, *, product_page=False):
             path = parsed.path or '/'
             if parsed.query:
                 path += '?' + parsed.query
+            accept = 'application/json' if product_page and parsed.path.startswith('/api/v1/') else ('text/html' if product_page else 'image/*')
             connection.request('GET', quote(path, safe="/%?=&:@!$'()*+,;~-"),
-                               headers={'Accept': 'text/html' if product_page else 'image/*', 'User-Agent': 'ProdXMart-Promotion-Studio/1.0'})
+                               headers={'Accept': accept, 'User-Agent': 'ProdXMart-Promotion-Studio/1.0'})
             response = connection.getresponse()
             if response.status in (301,302,303,307,308) and response.getheader('Location'):
                 return fetch_public(urljoin(url,response.getheader('Location')),redirects+1,product_page=product_page)
@@ -127,7 +128,54 @@ class StorePhotoParser(HTMLParser):
                     self.add(image.get('contentUrl') or image.get('url') if isinstance(image,dict) else image)
 
 
+def listing_gallery(url):
+    """Read the same per-product gallery used by the public storefront."""
+    parsed = urlsplit(url)
+    match = re.fullmatch(r'/product/([^/]+)/?', parsed.path)
+    if not match or parsed.scheme != 'https' or parsed.netloc.lower() not in ('prodxmart.com', 'www.prodxmart.com'):
+        return None
+    slug = unquote(match[1])
+    if '/' in slug or slug in ('.', '..'):
+        return None
+    endpoint = f'https://{parsed.netloc}/api/v1/products/product/{quote(slug, safe="")}?domain=prodxmart.com'
+    try:
+        raw, _ = fetch_public(endpoint, product_page=True)
+        response = json.loads(raw)
+        if not isinstance(response, dict) or response.get('success') is not True:
+            return None
+        row = next((r for r in response.get('data') or [] if isinstance(r, dict) and r.get('rsp_slug_url') == slug), None)
+        if not row:
+            return None
+        gallery = row.get('rsp_multi_images') or []
+        if isinstance(gallery, str):
+            gallery = json.loads(gallery)
+        if not isinstance(gallery, list):
+            return None
+        images = []
+        for src in [*gallery, row.get('rsp_img_path')]:
+            if not isinstance(src, str) or not src.strip():
+                continue
+            src = urljoin(url, src.strip())
+            if urlsplit(src).scheme == 'https' and src not in images:
+                images.append(src)
+        # Factori uses different identifiers in retail cards, store URLs and metadata.
+        identifiers = [str(row.get('rsp_id') or ''), str(row.get('rsp_sku') or '')]
+        slug_sku = re.search(r'(?:^|-)(SMP[0-9]+)$', slug, re.I)
+        if slug_sku:
+            identifiers.append(slug_sku[1])
+        if row.get('rsp_org_product_id'):
+            identifiers.append('SKUFACTORI' + str(row['rsp_org_product_id']))
+        if images:
+            return {'images': images[:MAX_PHOTOS], 'identifiers': [i for i in identifiers if i]}
+    except (OSError, http.client.HTTPException, ValueError):
+        pass
+    return None
+
+
 def store_photos(url, sku, name):
+    gallery = listing_gallery(url)
+    if gallery:
+        return gallery
     try:
         raw, final_url = fetch_public(url, product_page=True)
     except (OSError, http.client.HTTPException):

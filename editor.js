@@ -35,7 +35,7 @@ function renderProducts() {
       image.src='/photo?'+new URLSearchParams({mode:mode(),sku:p.sku});
       id.append(image);
     }else{const blank=element('span',p.name.slice(0,1));blank.className='thumb-fallback';id.append(blank);}
-    const name=element('div','');name.append(element('strong',p.name),element('small',p.sku+' · '+p.category));id.append(name);idCell.append(id);
+    const name=element('div','');name.append(element('strong',p.name),element('small',p.sku+' · '+p.category+' · '+p.photo_count+' photo'+(p.photo_count===1?'':'s')));id.append(name);idCell.append(id);
     for (const [label,value] of [['Price',money(p.price)],['Stock',p.stock],['Unit margin',money(p.margin)]]){
       const cell=tr.insertCell();cell.dataset.label=label;cell.textContent=value;
     }
@@ -85,15 +85,10 @@ async function openEditor(sku, imported){
       if(!p)form.elements.sku.value=imported.sku || '';
       if(imported.product_url)form.elements.product_url.value=imported.product_url;
       if(Number.isSafeInteger(imported.stock) && imported.stock>=0)form.elements.stock.value=imported.stock;
-      const urls=(imported.images || []).slice(0,Math.max(0,6-selection.length));
-      const results=await Promise.allSettled(urls.map(downloadProductPhoto));
+      const result=await addGalleryPhotos(imported.images || [], ()=>mode()==='store' && importedCard===imported);
       if(mode()!=='store' || importedCard!==imported)return;
-      for(const result of results){
-        if(result.status==='fulfilled')selection.push({file:result.value,preview:URL.createObjectURL(result.value)});
-      }
-      if(results.some(r=>r.status==='fulfilled'))form.elements.media_ok.checked=false;
-      const failed=results.filter(r=>r.status==='rejected');
-      if(failed.length)$('#form-error').textContent=failed.length+' photo(s) could not be imported. '+failed[0].reason.message+' You can choose the file or paste the photo.';
+      if(result.added)form.elements.media_ok.checked=false;
+      if(result.error)$('#form-error').textContent=result.error;
     }
     showPhotos();margin();dialog.showModal();dialog.querySelector('.form-scroll').scrollTop=0;
     (imported && p ? form.elements.price : form.elements.product_url).focus();
@@ -115,6 +110,75 @@ async function downloadProductPhoto(url){
   if(!response.ok)throw Error((await response.json()).error || 'Photo download failed.');
   return new File([await response.blob()],'Product photo.jpg',{type:'image/jpeg'});
 }
+async function readListing(url, sku, name){
+  const [browser, server]=await Promise.allSettled([
+    readerRequest('store-details',url),
+    fetch('/store-photos',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'store',url,sku,name})}).then(async response=>{
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error || 'Could not read the product gallery.');
+      return result;
+    })
+  ]);
+  const page=browser.value, record=server.value;
+  const verifiedSku=record?.identifiers?.some(id=>id.toUpperCase()===sku.toUpperCase());
+  const knownStoreSku=/^(?:SMP|SKUFACTORI)\d+$/i.test(sku);
+  if(!verifiedSku && ((sku && page?.sku && page.sku.toUpperCase()!==sku.toUpperCase()) ||
+      (record?.identifiers?.length && knownStoreSku)))
+    throw Error('The page SKU differs from this product. Check the saved product link.');
+  if(!page && !record?.images?.length)throw (server.reason || browser.reason || Error('No product gallery found.'));
+  const images=record?.identifiers?.length ? [...record.images,...(page?.images || [])] :
+    [...(page?.images || []),...(record?.images || [])];
+  return {...page, sku:sku || page?.sku || '', product_url:page?.product_url || url, images:[...new Set(images)].slice(0,6)};
+}
+
+async function photoSignature(url){
+  const img=new Image();
+  img.src=url;
+  await img.decode();
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=32;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='white';ctx.fillRect(0,0,32,32);
+  ctx.drawImage(img,0,0,32,32);
+  return {ratio:img.naturalWidth/img.naturalHeight, pixels:ctx.getImageData(0,0,32,32).data};
+}
+
+function samePhoto(a,b){
+  if(!a || !b || Math.abs(a.ratio/b.ratio-1)>.012)return false;
+  let total=0;
+  for(let i=0;i<a.pixels.length;i++){
+    const delta=Math.abs(a.pixels[i]-b.pixels[i]);
+    if(delta>35)return false;
+    total+=delta;
+  }
+  return total/a.pixels.length<2;
+}
+
+async function addGalleryPhotos(images, current=()=>true){
+  const urls=[...new Set(images)].filter(url=>!selection.some(item=>item.url===url)).slice(0,6);
+  if(selection.length>=6 || !urls.length)return {added:0};
+  // Old catalogue entries retain local files, without the original gallery URLs.
+  const known=await Promise.all(selection.filter(item=>!item.url).map(item=>photoSignature(item.preview).catch(()=>null)));
+  const downloads=await Promise.allSettled(urls.map(downloadProductPhoto));
+  let added=0;
+  for(const [i,result] of downloads.entries()){
+    if(!current() || selection.length>=6)break;
+    if(result.status!=='fulfilled')continue;
+    const preview=URL.createObjectURL(result.value);
+    const signature=known.length ? await photoSignature(preview).catch(()=>null) : null;
+    const match=known.findIndex(old=>samePhoto(old,signature));
+    if(!current() || match>=0){
+      if(match>=0)known.splice(match,1);
+      URL.revokeObjectURL(preview);continue;
+    }
+    selection.push({url:urls[i],file:result.value,preview});
+    added++;
+  }
+  const failed=downloads.filter(r=>r.status==='rejected');
+  return {added,error:failed.length ? failed.length+' photo(s) could not download. '+failed[0].reason.message : ''};
+}
+
 $('#fetch-photos').onclick=async()=>{
   if(saving)return;
   const button=$('#fetch-photos'), status=$('#photo-status');
@@ -125,34 +189,13 @@ $('#fetch-photos').onclick=async()=>{
   try{
     status.textContent='Reading the saved product page…';
     const sku=form.elements.sku.value.trim().toLowerCase();
-    let product;
-    try{
-      product=await readerRequest('store-details',link);
-    }catch{
-      status.textContent='Trying the public product page…';
-    }
-    if(!product?.images?.length && !(sku && product?.sku && product.sku.toLowerCase()!==sku)){
-      const response=await fetch('/store-photos',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({mode:'store',url:link,sku,name:form.elements.name.value})});
-      const data=await response.json();
-      if(!response.ok)throw Error(data.error || 'Could not read the public product page.');
-      product=data;
-    }
-    if(sku && product.sku && product.sku.toLowerCase()!==sku)throw Error('The page SKU differs from this product. Check the saved product link.');
-    const urls=product.images.filter(url=>!selection.some(item=>item.url===url)).slice(0,6-selection.length);
-    if(!urls.length)throw Error(product.images.length?'These photos are already selected.':'No gallery photos found. Open the listing, copy the product image and paste it here.');
+    const product=await readListing(link,sku,form.elements.name.value);
+    if(!product.images.length)throw Error('No gallery photos found. Check the product link or choose image files.');
     status.textContent='Downloading product photos…';
-    const results=await Promise.allSettled(urls.map(downloadProductPhoto));
-    let added=0;
-    results.forEach((result,index)=>{
-      if(result.status==='fulfilled'){
-        selection.push({url:urls[index],file:result.value,preview:URL.createObjectURL(result.value)});
-        added++;
-      }
-    });
-    if(added){form.elements.media_ok.checked=false;showPhotos();}
-    const error=results.find(result=>result.status==='rejected');
-    status.textContent=added+' photo(s) added.'+(error?' '+error.reason.message:' Review and save the product.');
+    const result=await addGalleryPhotos(product.images);
+    if(result.added){form.elements.media_ok.checked=false;showPhotos();}
+    status.textContent=product.images.length+' gallery photo(s) found. '+result.added+' added. '+
+      (result.error || (result.added?'Review and save the product.':'Matching photos are already selected.'));
   }catch(error){status.textContent=error.message;}
   finally{saving=false;button.disabled=false;$('#save').disabled=false;}
 };
@@ -205,7 +248,7 @@ form.onsubmit=async e=>{
 let importedCard = null;
 function readerRequest(type,url){
   const readerId=document.documentElement.dataset.factoriReader;
-  if(!readerId || readerId==='1')return Promise.reject(Error('Reload extension 1.3.2 or later and refresh Studio.'));
+  if(!readerId || readerId==='1')return Promise.reject(Error('Reload extension 1.4.0 or later and refresh Studio.'));
   return new Promise((resolve,reject)=>{
     const id=crypto.randomUUID();
     function finish(){
@@ -274,10 +317,8 @@ async function loadStoreDetails(){
   $('#factori-status').textContent='Reading the product page…';
   try{
     if(!document.documentElement.dataset.factoriReader)await new Promise(resolve=>setTimeout(resolve,450));
-    const details=await readerRequest('store-details',url);
+    const details=await readListing(url,card.sku || '',card.name);
     if(card!==importedCard)return;
-    if(card.sku && details.sku && card.sku.toUpperCase()!==details.sku.toUpperCase())
-      throw Error('The page SKU differs from the selected Factori card. Check the link.');
     card.name=details.name || card.name;
     card.fullName=Boolean(details.name);
     card.sku=details.sku || card.sku;

@@ -79,3 +79,28 @@ test('a refreshed Studio reader ignores stale requests and handles unavailable C
   await listener(event);
   assert.equal(replies[1].value.images[0],'front.jpg');
 });
+
+test('Factori gallery uses the numbered thumbnail rail outside the product info card', () => {
+  const views = ['front', 'back', 'inside', 'dimensions'].map(v=>'https://cdn.factori.com/'+v+'.webp');
+  const rail = views.map(src=>({alt:'',src,currentSrc:'',getAttribute:()=>null}));
+  const gallery = {querySelectorAll:s=>s.includes('thumbs') ? rail : [rail[3],...rail,rail[0]]};
+  const scope = {innerText:'66 available',querySelectorAll:()=>[]};
+  const main = {querySelector:()=>({textContent:'Grey Khadi Bag',closest:()=>scope})};
+  const document = {querySelectorAll:()=>[],querySelector:s=>s==='main'?main:s.includes('sf-pdp-gal')?gallery:null};
+  const ctx=scripts(['fields.js','storefront.js'],{URL,document,location:new URL('https://prodxmart.com/product/bag-SMP4618'),
+    chrome:{runtime:{onMessage:{addListener(){}}}}});
+  assert.deepEqual(Array.from(ctx.storeDetails().images),views);
+});
+
+test('Studio supplements one browser cover and reconciles the verified retailer SKU', async () => {
+  const source=readFileSync(__dirname+'/editor.js','utf8');
+  const images=['front','back','inside','dimensions'];
+  const ctx=vm.createContext({readerRequest:async()=>({sku:'1000004618',images:['front'],stock:66}),
+    fetch:async()=>({ok:true,json:async()=>({images,identifiers:['1000004618','SMP4618','SKUFACTORI8432']})})});
+  vm.runInContext(source.slice(source.indexOf('async function readListing'),source.indexOf('async function photoSignature')),ctx);
+  const product=await ctx.readListing('https://prodxmart.com/product/bag-SMP4618','SKUFACTORI8432','Bag');
+  assert.deepEqual([...product.images],images);
+  assert.equal(product.sku,'SKUFACTORI8432');
+  assert.equal(product.stock,66);
+  await assert.rejects(ctx.readListing('url','SMP6900','Bag'),/page SKU differs/);
+});
