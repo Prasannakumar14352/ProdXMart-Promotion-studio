@@ -1,6 +1,6 @@
 {
   "minimum_stock": 3,
-  "minimum_margin_rupees": 100,
+  "minimum_margin_rupees": 35,
   "category": "",
   "maximum_catalogue_age_hours": 24,
   "catalogue_columns": {},

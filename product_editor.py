@@ -12,6 +12,7 @@ import ssl
 import tempfile
 from contextlib import closing
 from decimal import InvalidOperation
+from html.parser import HTMLParser
 from ipaddress import ip_address
 from urllib.parse import urlsplit, urljoin, quote
 
@@ -22,11 +23,17 @@ MAX_IMAGE = 5 * 1024 * 1024
 MAX_PHOTOS = 6
 
 
-def public_image(url, redirects=0):
+def public_image(url):
+    return fetch_public(url)[0]
+
+
+def fetch_public(url, redirects=0, *, product_page=False):
     parsed = urlsplit(url)
     if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
             or parsed.port not in (None, 443) or redirects > 3):
         raise ValueError('Use a public HTTPS image URL, or upload the image file.')
+    if product_page and (parsed.hostname not in ('prodxmart.com','www.prodxmart.com') or parsed.path in ('','/')):
+        raise ValueError('Enter a ProdXMart product page link.')
     host = parsed.hostname.encode('idna').decode()
     addresses = [record[4][0] for record in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)]
     if not addresses or any(not ip_address(addr).is_global or ip_address(addr).is_multicast for addr in addresses):
@@ -40,15 +47,97 @@ def public_image(url, redirects=0):
             if parsed.query:
                 path += '?' + parsed.query
             connection.request('GET', quote(path, safe="/%?=&:@!$'()*+,;~-"),
-                               headers={'Accept': 'image/*', 'User-Agent': 'ProdXMart-Promotion-Studio/1.0'})
+                               headers={'Accept': 'text/html' if product_page else 'image/*', 'User-Agent': 'ProdXMart-Promotion-Studio/1.0'})
             response = connection.getresponse()
             if response.status in (301,302,303,307,308) and response.getheader('Location'):
-                return public_image(urljoin(url,response.getheader('Location')),redirects+1)
+                return fetch_public(urljoin(url,response.getheader('Location')),redirects+1,product_page=product_page)
             if response.status != 200:
-                raise ValueError(f'The image host returned HTTP {response.status}.')
-            return response.read(MAX_IMAGE + 1)
+                raise ValueError(f'The host returned HTTP {response.status}.')
+            raw = response.read(MAX_IMAGE + 1)
+            if product_page and len(raw) > MAX_IMAGE:
+                raise ValueError('The public product page is too large to read.')
+            return raw, url
     finally:
         connection.close()
+
+
+class StorePhotoParser(HTMLParser):
+    def __init__(self, url, sku, name):
+        super().__init__()
+        self.url = url
+        self.sku = sku.strip().casefold()
+        self.name = name.strip().casefold()
+        self.photos = []
+        self.social_image = None
+        self.structured = None
+
+    def add(self, value):
+        if not isinstance(value, str) or not value.strip():
+            return
+        url = urljoin(self.url, value.strip())
+        if urlsplit(url).scheme == 'https' and url not in self.photos and len(self.photos) < MAX_PHOTOS:
+            self.photos.append(url)
+
+    def handle_starttag(self, tag, pairs):
+        attrs = dict(pairs)
+        if tag == 'script' and attrs.get('type') == 'application/ld+json':
+            self.structured = []
+        elif tag == 'meta' and attrs.get('property') == 'og:image':
+            self.social_image = attrs.get('content')
+        elif tag == 'img':
+            src = attrs.get('data-src') or attrs.get('data-original') or attrs.get('src') or ''
+            same_name = self.name and (attrs.get('alt') or '').strip().casefold() == self.name
+            same_sku = self.sku and re.search(r'(?<![a-z0-9])' + re.escape(self.sku) + r'(?![a-z0-9])',src.casefold())
+            if same_name or same_sku:
+                self.add(src)
+
+    def handle_data(self, data):
+        if self.structured is not None:
+            self.structured.append(data)
+
+    def handle_endtag(self, tag):
+        if tag != 'script' or self.structured is None:
+            return
+        raw = ''.join(self.structured)
+        self.structured = None
+        try:
+            node = json.loads(raw)
+        except ValueError:
+            return
+        pending = node if isinstance(node, list) else [node]
+        while pending:
+            item = pending.pop()
+            if not isinstance(item, dict):
+                continue
+            for key in ('@graph','mainEntity'):
+                child = item.get(key)
+                if child:
+                    pending.extend(child if isinstance(child,list) else [child])
+            if item.get('@type') != 'Product':
+                continue
+            sku = str(item.get('sku') or '').casefold()
+            name = str(item.get('name') or '').strip().casefold()
+            if sku and self.sku:
+                matches = sku == self.sku
+            else:
+                matches = bool(name and name == self.name)
+            if matches:
+                images = item.get('image', [])
+                for image in images if isinstance(images,list) else [images]:
+                    self.add(image.get('contentUrl') or image.get('url') if isinstance(image,dict) else image)
+
+
+def store_photos(url, sku, name):
+    try:
+        raw, final_url = fetch_public(url, product_page=True)
+    except (OSError, http.client.HTTPException):
+        raise ValueError('Could not reach the public product page. Open its link in Chrome and check it loads.') from None
+    parser = StorePhotoParser(final_url, sku, name)
+    parser.feed(raw.decode('utf-8', errors='replace'))
+    parser.close()
+    if not parser.photos:
+        parser.add(parser.social_image)
+    return {'images':parser.photos}
 
 
 def photo_bytes(item):

@@ -124,8 +124,20 @@ $('#fetch-photos').onclick=async()=>{
   saving=true;button.disabled=true;$('#save').disabled=true;
   try{
     status.textContent='Reading the saved product page…';
-    const product=await readerRequest('store-details',link);
     const sku=form.elements.sku.value.trim().toLowerCase();
+    let product;
+    try{
+      product=await readerRequest('store-details',link);
+    }catch{
+      status.textContent='Trying the public product page…';
+    }
+    if(!product?.images?.length && !(sku && product?.sku && product.sku.toLowerCase()!==sku)){
+      const response=await fetch('/store-photos',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({mode:'store',url:link,sku,name:form.elements.name.value})});
+      const data=await response.json();
+      if(!response.ok)throw Error(data.error || 'Could not read the public product page.');
+      product=data;
+    }
     if(sku && product.sku && product.sku.toLowerCase()!==sku)throw Error('The page SKU differs from this product. Check the saved product link.');
     const urls=product.images.filter(url=>!selection.some(item=>item.url===url)).slice(0,6-selection.length);
     if(!urls.length)throw Error(product.images.length?'These photos are already selected.':'No gallery photos found. Open the listing, copy the product image and paste it here.');
@@ -192,7 +204,8 @@ form.onsubmit=async e=>{
 };
 let importedCard = null;
 function readerRequest(type,url){
-  if(!document.documentElement.dataset.factoriReader)return Promise.reject(Error('Reload extension 1.2.0 or later and refresh Studio.'));
+  const readerId=document.documentElement.dataset.factoriReader;
+  if(!readerId || readerId==='1')return Promise.reject(Error('Reload extension 1.3.2 or later and refresh Studio.'));
   return new Promise((resolve,reject)=>{
     const id=crypto.randomUUID();
     function finish(){
@@ -207,7 +220,7 @@ function readerRequest(type,url){
     }
     const timer=setTimeout(()=>{finish();reject(Error('The product reader timed out.'));},20000);
     window.addEventListener('message',receive);
-    window.postMessage({studioRequest:true,id,type,url},location.origin);
+    window.postMessage({readerId,id,type,url},location.origin);
   });
 }
 

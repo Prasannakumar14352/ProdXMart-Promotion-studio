@@ -60,3 +60,22 @@ test('SMP apparel gallery finds a lazy-loaded supplier photo without importing a
   assert.equal(result.sku,sku);
   assert.deepEqual(Array.from(result.images),[photo]);
 });
+
+test('a refreshed Studio reader ignores stale requests and handles unavailable Chrome messaging', async () => {
+  const replies = [];
+  let listener;
+  const window = {addEventListener:(type,fn)=>{listener=fn;},postMessage:data=>replies.push(data)};
+  const location = new URL('http://127.0.0.1:8765/');
+  const document = {documentElement:{dataset:{}}};
+  const chrome = {};
+  scripts(['local.js'], {window,document,location,chrome,crypto:{randomUUID:()=>'current-reader'}});
+  const event = {source:window,origin:location.origin,data:{readerId:'old-reader',type:'store-details',id:'1'}};
+  await listener(event);
+  assert.equal(replies.length,0);
+  event.data.readerId = 'current-reader';
+  await listener(event);
+  assert.match(replies[0].error,/refresh the Studio tab/);
+  chrome.runtime = {id:'valid',sendMessage:async()=>({value:{images:['front.jpg']}})};
+  await listener(event);
+  assert.equal(replies[1].value.images[0],'front.jpg');
+});

@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import engine
-from product_editor import details, save
+from product_editor import details, save, store_photos
 
 class ProductWorkflow(unittest.TestCase):
     def setUp(self):
@@ -36,6 +36,23 @@ class ProductWorkflow(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'latest version'):
             save(dict(self.product,version=p['version']))
         self.assertEqual(details('P01')['photos'],p['photos'])
+
+    def test_35_rupee_margin_is_eligible(self):
+        save(dict(self.product, price='385',cost='350',fees='0'))
+        self.assertEqual(engine.catalogue('store')['P01']['issues'], [])
+        save(dict(self.product, sku='P02',price='385',cost='350',fees='0.01'))
+        self.assertIn('Low margin',engine.catalogue('store')['P02']['issues'])
+
+    def test_disconnected_reader_can_discover_public_gallery(self):
+        url = 'https://prodxmart.com/products/maroon'
+        page = b'''<meta property="og:image" content="/brand-logo.png">
+          <script type="application/ld+json">{"@graph":[
+            {"@type":"Product","sku":"OTHER","image":"/other.jpg"},
+            {"@type":"Product","sku":"SMP787747","image":[{"url":"/front.jpg"},"/back.jpg"]}
+          ]}</script><img alt="Maroon shirt" data-src="/back.jpg">'''
+        with patch('product_editor.fetch_public',return_value=(page,url)):
+            self.assertEqual(store_photos(url,'SMP787747','Maroon shirt')['images'],
+                             ['https://prodxmart.com/front.jpg','https://prodxmart.com/back.jpg'])
 
     def test_invalid_photo_does_not_create_partial_product(self):
         with self.assertRaisesRegex(ValueError,'photo'):
