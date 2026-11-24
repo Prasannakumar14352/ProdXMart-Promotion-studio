@@ -73,7 +73,7 @@ async function openEditor(sku, imported){
     let p=null;
     if(sku){const r=await fetch('/product?'+new URLSearchParams({sku}));p=await r.json();if(!r.ok)throw Error(p.error);}
     if(mode()!=='store')return;
-    editing=p;form.reset();$('#form-error').textContent='';$('#form-title').textContent=p?'Edit product':'Add product';
+    editing=p;form.reset();$('#photo-status').textContent='';$('#form-error').textContent='';$('#form-title').textContent=p?'Edit product':'Add product';
     $('#categories').replaceChildren(...[...new Set((state?.products||[]).map(x=>x.category))].map(c=>element('option',c)));
     if(p)for(const k of ['product_url','sku','name','category','price','cost','fees','stock','feature_te'])form.elements[k].value=p[k];
     form.elements.sku.readOnly=!!p;form.elements.media_ok.checked=p?.media_ok?.toLowerCase()==='yes';
@@ -86,11 +86,7 @@ async function openEditor(sku, imported){
       if(imported.product_url)form.elements.product_url.value=imported.product_url;
       if(Number.isSafeInteger(imported.stock) && imported.stock>=0)form.elements.stock.value=imported.stock;
       const urls=(imported.images || []).slice(0,Math.max(0,6-selection.length));
-      const results=await Promise.allSettled(urls.map(async url=>{
-        const data=await readerRequest('store-photo',url);
-        const bytes=Uint8Array.from(atob(data.base64),char=>char.charCodeAt(0));
-        return new File([bytes],'Factori product photo',{type:data.mime});
-      }));
+      const results=await Promise.allSettled(urls.map(downloadProductPhoto));
       if(mode()!=='store' || importedCard!==imported)return;
       for(const result of results){
         if(result.status==='fulfilled')selection.push({file:result.value,preview:URL.createObjectURL(result.value)});
@@ -103,6 +99,51 @@ async function openEditor(sku, imported){
     (imported && p ? form.elements.price : form.elements.product_url).focus();
   }catch(e){notice(e.message,true);}
 }
+async function downloadProductPhoto(url){
+  const parsed=new URL(url);
+  if(['cdn.factori.com','prodxmart.com','www.prodxmart.com'].includes(parsed.hostname)){
+    try{
+      const data=await readerRequest('store-photo',url);
+      const bytes=Uint8Array.from(atob(data.base64),char=>char.charCodeAt(0));
+      return new File([bytes],'Factori product photo',{type:data.mime});
+    }catch{
+      // The existing Studio downloader also supports public HTTPS redirects.
+    }
+  }
+  const response=await fetch('/product-photo',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({mode:'store',url})});
+  if(!response.ok)throw Error((await response.json()).error || 'Photo download failed.');
+  return new File([await response.blob()],'Product photo.jpg',{type:'image/jpeg'});
+}
+$('#fetch-photos').onclick=async()=>{
+  if(saving)return;
+  const button=$('#fetch-photos'), status=$('#photo-status');
+  const link=form.elements.product_url.value.trim();
+  if(!link){status.textContent='Enter the ProdXMart product page link first.';return;}
+  if(selection.length>=6){status.textContent='Remove a photo to make space first.';return;}
+  saving=true;button.disabled=true;$('#save').disabled=true;
+  try{
+    status.textContent='Reading the saved product page…';
+    const product=await readerRequest('store-details',link);
+    const sku=form.elements.sku.value.trim().toLowerCase();
+    if(sku && product.sku && product.sku.toLowerCase()!==sku)throw Error('The page SKU differs from this product. Check the saved product link.');
+    const urls=product.images.filter(url=>!selection.some(item=>item.url===url)).slice(0,6-selection.length);
+    if(!urls.length)throw Error(product.images.length?'These photos are already selected.':'No gallery photos found. Open the listing, copy the product image and paste it here.');
+    status.textContent='Downloading product photos…';
+    const results=await Promise.allSettled(urls.map(downloadProductPhoto));
+    let added=0;
+    results.forEach((result,index)=>{
+      if(result.status==='fulfilled'){
+        selection.push({url:urls[index],file:result.value,preview:URL.createObjectURL(result.value)});
+        added++;
+      }
+    });
+    if(added){form.elements.media_ok.checked=false;showPhotos();}
+    const error=results.find(result=>result.status==='rejected');
+    status.textContent=added+' photo(s) added.'+(error?' '+error.reason.message:' Review and save the product.');
+  }catch(error){status.textContent=error.message;}
+  finally{saving=false;button.disabled=false;$('#save').disabled=false;}
+};
 $('#add').onclick=()=>openEditor();
 function closeForm(){if(!saving)dialog.close();}
 $('#cancel').onclick=closeForm;$('#close').onclick=closeForm;

@@ -33,7 +33,7 @@
     const shop = urls.find(u => u.protocol === 'https:' && ['prodxmart.com','www.prodxmart.com'].includes(u.hostname) && u.pathname !== '/');
     const sku = factoriSku(text, urls.map(u=>u.pathname + ' ' + u.search).join(' '));
     const images = [...new Set(Array.from(card.querySelectorAll('img'), img =>
-      productImageUrl(img.currentSrc || img.dataset?.src || img.src, location.href)).filter(Boolean))].slice(0,6);
+      productImageSource(img, location.href)).filter(Boolean))].slice(0,6);
     return {name, sku, stock:factoriStock(text), images, product_url: shop?.href || '', ...prices};
   }
 

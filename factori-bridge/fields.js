@@ -18,7 +18,7 @@ function factoriStock(text) {
 
 function factoriSku(text, pathname = '') {
   const labelled = text.match(/\bSKU\s*[:#：]\s*([A-Z0-9][A-Z0-9._-]{0,119})\b/i);
-  return labelled?.[1] || (text + ' ' + pathname).match(/\bSKUFACTORI\d+\b/i)?.[0].toUpperCase() || '';
+  return labelled?.[1] || (text + ' ' + pathname).match(/\b(?:SKUFACTORI|SMP)\d+\b/i)?.[0].toUpperCase() || '';
 }
 
 function productImageUrl(value, base) {
@@ -26,8 +26,14 @@ function productImageUrl(value, base) {
   try {
     const url = new URL(value, base);
     if (url.protocol === 'https:' && !url.username && !url.password && !url.port &&
-        ['cdn.factori.com','prodxmart.com','www.prodxmart.com'].includes(url.hostname) &&
         !/\b(?:logo|placeholder|avatar|favicon)\b/i.test(url.pathname)) return url.href;
   } catch {}
   return '';
+}
+
+function productImageSource(img, base) {
+  const set = img.getAttribute?.('data-srcset') || img.getAttribute?.('srcset') || '';
+  const candidates = [img.getAttribute?.('data-zoom-image'), img.getAttribute?.('data-src'),
+    img.getAttribute?.('data-original'), img.currentSrc, ...set.split(',').reverse().map(s=>s.trim().split(/\s+/)[0]), img.src];
+  return candidates.map(value=>productImageUrl(value,base)).find(Boolean) || '';
 }

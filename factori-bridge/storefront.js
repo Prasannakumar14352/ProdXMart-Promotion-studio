@@ -27,12 +27,12 @@ function storeDetails() {
   }
   for (const item of [product?.image].flat()) add(typeof item === 'string' ? item : item?.contentUrl || item?.url);
   add(document.querySelector('meta[property="og:image"]')?.content);
-  const numericSku = /^SKUFACTORI(\d+)$/i.exec(sku)?.[1];
+  const numericSku = /^(?:SKUFACTORI|SMP)(\d+)$/i.exec(sku)?.[1];
   for (const img of scope.querySelectorAll('img')) {
-    const src = img.currentSrc || img.getAttribute('data-src') || img.src;
+    const src = productImageSource(img, location.href);
     const inGallery = img.closest('[class*="gallery" i],[id*="gallery" i],[class*="thumbnail" i],[class*="product-image" i]');
     if (img.closest('[class*="related" i],[class*="recommend" i]')) continue;
-    if (inGallery || (name && img.alt.trim().toLowerCase() === name.toLowerCase()) ||
+    if (inGallery || (sku && src.toLowerCase().includes(sku.toLowerCase())) || (name && img.alt.trim().toLowerCase() === name.toLowerCase()) ||
         (numericSku && new RegExp('[-_/]' + numericSku + '[-_.]').test(src))) add(src);
   }
   let stock = factoriStock(text);

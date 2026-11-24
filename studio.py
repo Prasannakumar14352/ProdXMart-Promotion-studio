@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 from engine import ROOT, OUT, batch, catalogue, db, decide, directory, earnings, now, records
 from publisher import run_due, enabled
-from product_editor import details, save
+from product_editor import details, photo_bytes, save
 
 ASSETS={'/':('index.html','text/html'),'/ui.js':('ui.js','text/javascript'),'/editor.js':('editor.js','text/javascript'),'/style.css':('style.css','text/css')}
 
@@ -101,6 +101,8 @@ class Handler(BaseHTTPRequestHandler):
             if not 0<n<limit:raise ValueError('Invalid request.')
             data=json.loads(self.rfile.read(n))
             mode=data['mode'];directory(mode)
+            if self.path=='/product-photo' and mode=='store':
+                return self.respond(photo_bytes({'url':data['url']}),'image/jpeg')
             if self.path=='/product':
                 if mode!='store':raise ValueError('Switch to My store to edit products.')
                 msg=save(data)

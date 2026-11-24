@@ -42,3 +42,21 @@ test('structured product supplies SKU, stock and image when visual labels are ab
   assert.equal(item.stock,0);
   assert.equal(item.images[0],product.image[0].url);
 });
+
+test('SMP apparel gallery finds a lazy-loaded supplier photo without importing a related shirt', () => {
+  const sku='SMP787747', name='Maroon Boys HI Neck Taqua Kids Printed Casual TShirt';
+  const url='https://prodxmart.com/products/maroon-shirt-smp787747';
+  const photo='https://retailer-images.example/SMP787747-front.webp';
+  function lazyImage(src) {
+    return {alt:'',currentSrc:'data:image/gif;base64,AA==',src:'',closest:()=>null,
+      getAttribute:key=>key==='data-src'?src:null};
+  }
+  const main={innerText:'1,455 available', querySelector:()=>({textContent:name,closest:()=>null}),
+    querySelectorAll:()=>[lazyImage(photo),lazyImage('https://retailer-images.example/SMP787748-front.webp')]};
+  const document={querySelectorAll:()=>[],querySelector:s=>s==='main'?main:null};
+  const ctx=scripts(['fields.js','storefront.js'],{URL,document,location:new URL(url),
+    chrome:{runtime:{onMessage:{addListener(){}}}}});
+  const result=ctx.storeDetails();
+  assert.equal(result.sku,sku);
+  assert.deepEqual(Array.from(result.images),[photo]);
+});

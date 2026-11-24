@@ -35,7 +35,7 @@ async function readStore(value) {
 
 async function readPhoto(value) {
   const url = productImageUrl(value);
-  if (!url) throw Error('Unrecognised photo URL.');
+  if (!url || !['cdn.factori.com',...shopHosts].includes(new URL(url).hostname)) throw Error('Use the Studio image downloader for this host.');
   const response = await fetch(url, {credentials:'omit', redirect:'error', signal:AbortSignal.timeout(10000)});
   if (!response.ok) throw Error('Image host returned HTTP ' + response.status);
   const limit = 5 * 1024 * 1024;
