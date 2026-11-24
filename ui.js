@@ -16,6 +16,8 @@ async function refresh(){
  if(!res.ok){state=null;['#metrics','#cards','#products','#campaigns'].forEach(k=>$(k).replaceChildren());$('#approve').disabled=true;throw Error(s.error);}
  state=s;const demo=mode()==='demo';
  $('#add').hidden=demo;
+ $('#factori-help').hidden=demo;
+ $('#factori-review').hidden=demo || !importedCard;
  updateHeading();
  $('#conn').textContent=demo?'Demo workspace · local simulation':(s.enabled?'Instagram publishing configured · account verification occurs at publish time':'Instagram disconnected · draft and scheduling tools available');
  $('#start').value ||= s.start;

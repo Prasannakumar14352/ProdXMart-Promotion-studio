@@ -65,3 +65,10 @@ Meta’s official guide: https://developers.facebook.com/documentation/instagram
 ## Implementation
 
 engine.py handles catalogue mapping, eligibility, batch scheduling and reporting. creative.py renders 15-second vertical MP4s. publisher.py handles due jobs and Meta uploads. studio.py serves the review dashboard on the loopback interface. Enter catalogue products in the app or use a CSV. Order, expense and analytics snapshots currently enter through CSV. No external account was connected during development. The local workflow and a simulated publisher were tested; the live Meta account path must be verified with your own first post. For supplier assets, wait for the applicable media permission before marking media_ok. The app does not place ads or purchase products.
+
+## Pull prices from Factori My Products
+
+1. Start Studio on its default port (8765). In Chrome on the same PC, open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and choose the repository's **factori-bridge** folder. This is a one-time setup.
+2. Sign in at [Factori My Products](https://retailing.factori.com/dashboard/products) and refresh the page. Click **Import to ProdXMart Studio** on the product you want. The extension reads that card from the signed-in page and opens a local Studio tab.
+3. Review **Customer pays**, **Factori price** (including GST when shown on the card), and **Profit per sale** when available. Select the matching Studio product or **Add as a new product**. Click **Use these prices**, review the editor and **Save product**. Existing products keep their fees and stock values unless you edit them. For a new item, verify the product name, link, SKU, category, fees, stock and photo permission.
+4. Repeat the import when a supplier price changes. The importer only reads a product you select. Factori's catalogue MRP and displayed profit do not populate unit cost or direct fees.

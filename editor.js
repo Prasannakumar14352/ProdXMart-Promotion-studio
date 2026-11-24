@@ -67,7 +67,7 @@ function showPhotos(){
     tile.append(img,b);box.append(tile);
   });
 }
-async function openEditor(sku){
+async function openEditor(sku, imported){
   if(mode()!=='store'||saving)return;
   try{
     let p=null;
@@ -77,8 +77,18 @@ async function openEditor(sku){
     $('#categories').replaceChildren(...[...new Set((state?.products||[]).map(x=>x.category))].map(c=>element('option',c)));
     if(p)for(const k of ['product_url','sku','name','category','price','cost','fees','stock','feature_te'])form.elements[k].value=p[k];
     form.elements.sku.readOnly=!!p;form.elements.media_ok.checked=p?.media_ok?.toLowerCase()==='yes';
+    if(imported){
+      form.elements.price.value=imported.price;
+      form.elements.cost.value=imported.cost;
+      if(!p){
+        form.elements.name.value=imported.name;
+        form.elements.sku.value=imported.sku;
+        form.elements.product_url.value=imported.product_url;
+      }
+    }
     selection=(p?.photos||[]).map((name,index)=>({name,preview:'/photo?'+new URLSearchParams({mode:'store',sku,index})}));
-    showPhotos();margin();dialog.showModal();dialog.querySelector('.form-scroll').scrollTop=0;form.elements.product_url.focus();
+    showPhotos();margin();dialog.showModal();dialog.querySelector('.form-scroll').scrollTop=0;
+    (imported && p ? form.elements.price : form.elements.product_url).focus();
   }catch(e){notice(e.message,true);}
 }
 $('#add').onclick=()=>openEditor();
@@ -122,9 +132,43 @@ form.onsubmit=async e=>{
     d.new=[...await Promise.all(selection.filter(x=>x.file).map(x=>encoded(x.file))),...links.map(url=>({url}))];
     const r=await fetch('/product',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
     const j=await r.json();if(!r.ok)throw Error(j.error||'Could not save product.');
-    dialog.close();$('#search').value='';$('#filter').value='';openTab('catalogue');
+    dialog.close();importedCard=null;$('#factori-review').hidden=true;$('#search').value='';$('#filter').value='';openTab('catalogue');
     await refresh();notice(j.message);
   }catch(err){if(dialog.open)$('#form-error').textContent=err.message;else notice(err.message,true);}
   finally{saving=false;$('#save').disabled=false;$('#save').textContent='Save product';}
 };
-refresh().catch(e=>notice(e.message,true));
+let importedCard = null;
+function readFactoriImport(){
+  const prefix = '#factori=';
+  if(!location.hash.startsWith(prefix))return;
+  const payload = location.hash.slice(prefix.length);
+  history.replaceState(null, '', location.pathname + location.search);
+  const card = JSON.parse(decodeURIComponent(payload));
+  if(!card || typeof card.name !== 'string' || !card.name.trim() ||
+      !Number.isFinite(card.price) || card.price <= 0 || !Number.isFinite(card.cost) || card.cost < 0){
+    throw Error('Incomplete Factori pricing. Reopen the product card and try again.');
+  }
+  importedCard = card;
+  const target = $('#factori-target');
+  target.replaceChildren(new Option('Choose a product', ''), new Option('Add as a new product', 'new'));
+  const sameName = state.products.filter(product => product.name === card.name);
+  const match = card.sku ? state.products.find(p => p.sku.toUpperCase() === card.sku) :
+    (sameName.length === 1 ? sameName[0] : null);
+  for(const product of state.products){
+    if(card.sku && product.sku.toUpperCase() !== card.sku)continue;
+    target.add(new Option(product.name + ' · ' + product.sku, 'sku:' + product.sku));
+  }
+  if(match)target.value='sku:' + match.sku;
+  else if(!state.products.length || card.sku)target.value='new';
+  $('#factori-values').textContent = card.name + ' · Customer pays ' + money(card.price) +
+    ' · Factori price ' + money(card.cost) + (Number.isFinite(card.profit) ? ' · Factori profit per sale ' + money(card.profit) : '');
+  $('#factori-apply').disabled=!target.value;
+  $('#factori-review').hidden=false;
+}
+$('#factori-target').onchange=e=>{$('#factori-apply').disabled=!e.target.value;};
+$('#factori-apply').onclick=()=>{
+  const target=$('#factori-target').value;
+  if(importedCard && target)openEditor(target==='new' ? null : target.slice(4), importedCard);
+};
+$('#factori-dismiss').onclick=()=>{importedCard=null;$('#factori-review').hidden=true;};
+refresh().then(readFactoriImport).catch(e=>notice(e.message,true));

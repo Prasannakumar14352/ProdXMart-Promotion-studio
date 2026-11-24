@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "ProdXMart product importer",
+  "version": "1.0.0",
+  "description": "Open a product from your Factori retailer catalogue in your local Promotion Studio.",
+  "content_scripts": [{
+    "matches": ["https://retailing.factori.com/*"],
+    "js": ["products.js"]
+  }]
+}
