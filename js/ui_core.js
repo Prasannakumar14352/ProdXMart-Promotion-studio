@@ -116,6 +116,13 @@
       if (el) el.hidden = secId !== meta.section;
     });
 
+    // Toggle dedicated sub-views inside #agents so each navigation item is a focused screen.
+    if (meta.section === 'agents') {
+      document.querySelectorAll('#agents [data-subview]').forEach(el => {
+        el.hidden = el.dataset.subview !== targetRoute;
+      });
+    }
+
     const pageHead = document.getElementById('legacy-page-head');
     if (pageHead) pageHead.hidden = meta.section === 'overview';
 
@@ -129,13 +136,9 @@
     if (meta.section === 'overview' && typeof window.refreshOverview === 'function') {
       window.refreshOverview().catch(() => {});
     }
-    if (meta.section === 'agents' && typeof window.refreshAgents === 'function') {
-      window.refreshAgents().then(() => {
-        if (meta.focus && !opts?.skipScroll) {
-          const target = document.querySelector(meta.focus);
-          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }).catch(() => {});
+    if (meta.section === 'agents') {
+      if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
+      if (typeof window.refreshAgentViews === 'function') window.refreshAgentViews(targetRoute).catch(() => {});
     }
   }
 

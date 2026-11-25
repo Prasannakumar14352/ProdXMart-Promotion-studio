@@ -377,9 +377,18 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertIn('refreshAgents', agents_js)
 
-        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
+        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/js/agent_views.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
             acode, _ = invoke_handler('GET', asset_path, orchestrator=orch, decode=False)
             self.assertEqual(acode, 200, f'Failed to serve {asset_path}')
+
+        code, sys_int_raw = invoke_handler('GET', '/api/system/integrations?mode=demo', orchestrator=orch)
+        self.assertEqual(code, 200)
+        sys_int = json.loads(sys_int_raw)
+        self.assertIn('ollama', sys_int['integrations'])
+        self.assertIn('factori_official_api', sys_int['integrations'])
+        self.assertEqual(sys_int['integrations']['factori_official_api']['status'], 'pending')
+        self.assertGreaterEqual(len(sys_int['integrations']['factori_official_api']['checklist']), 10)
+        self.assertNotIn('token', json.dumps(sys_int['safe_config']).lower())
 
         code, ov_raw = invoke_handler('GET', '/api/overview?mode=demo&range=month', orchestrator=orch)
         self.assertEqual(code, 200)

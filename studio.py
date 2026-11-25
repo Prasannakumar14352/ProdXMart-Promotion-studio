@@ -41,6 +41,7 @@ ASSETS={
     '/css/layout.css':('css/layout.css','text/css'),
     '/js/ui_core.js':('js/ui_core.js','text/javascript'),
     '/js/overview.js':('js/overview.js','text/javascript'),
+    '/js/agent_views.js':('js/agent_views.js','text/javascript'),
     '/vendor/lucide.min.js':('assets/vendor/lucide.min.js','text/javascript'),
     '/vendor/chart.umd.min.js':('assets/vendor/chart.umd.min.js','text/javascript'),
 }
@@ -103,6 +104,11 @@ class Handler(BaseHTTPRequestHandler):
                 mode=params.get('mode',['store'])[0];directory(mode)
                 date_range=params.get('range',['month'])[0]
                 return self.respond(build_overview_payload(orch, mode=mode, date_range=date_range))
+            if u.path=='/api/system/integrations':
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                params=parse_qs(u.query)
+                mode=params.get('mode',['store'])[0];directory(mode)
+                return self.respond(build_system_integrations_payload(orch, mode=mode))
             if u.path=='/state':
                 mode=parse_qs(u.query).get('mode',['demo'])[0]
                 with closing(db()) as c:
@@ -569,6 +575,115 @@ def build_overview_payload(orch, *, mode: str, date_range: str = 'month') -> dic
             'instagram': {'label': 'Instagram API', 'status': 'connected' if enabled() else 'disconnected', 'detail': 'Live configured' if enabled() else 'Manual / local mode'},
             'factori_api': {'label': 'Factori Official API', 'status': 'pending', 'detail': 'Pending official API access'},
             'global_publishing': {'label': 'Publishing Gate', 'status': 'paused' if social_settings['global_publishing_stopped'] else 'manual', 'detail': 'Global Stop Active' if social_settings['global_publishing_stopped'] else 'Human approval required'},
+        },
+    }
+
+
+def build_system_integrations_payload(orch, *, mode: str):
+    """Build real integration, Factori checklist, config, and SQLite database metadata."""
+    import shutil
+    from engine import config as studio_config
+
+    cfg = studio_config()
+    ollama_cfg = orch.get_config()
+    ff_path = shutil.which('ffmpeg') or ''
+    ffprobe_path = shutil.which('ffprobe') or ''
+    if not ff_path:
+        try:
+            import creative
+            ff_path = str(creative.ffmpeg())
+            ffprobe_path = str(creative.ffprobe())
+        except Exception:
+            ff_path = ''
+    ff_ready = bool(ff_path and Path(ff_path).is_file())
+
+    ext_version = 'Not found'
+    manifest_file = ROOT / 'factori-bridge' / 'manifest.json'
+    if manifest_file.is_file():
+        try:
+            ext_version = json.loads(manifest_file.read_text(encoding='utf-8')).get('version', 'Unknown')
+        except Exception:
+            ext_version = 'Unreadable'
+    staged = orch.storage.get_staged_catalog_batch(mode)
+
+    checklist = []
+    checklist_file = ROOT / 'FACTORI_API_CHECKLIST.md'
+    if checklist_file.is_file():
+        for raw_line in checklist_file.read_text(encoding='utf-8').splitlines():
+            stripped = raw_line.strip()
+            if stripped.startswith('- [ ] '):
+                checklist.append({'text': stripped[6:].strip(), 'checked': False})
+            elif stripped.startswith('- [x] ') or stripped.startswith('- [X] '):
+                checklist.append({'text': stripped[6:].strip(), 'checked': True})
+
+    cred_status = SecureCredentialStore().list_status()
+    social_settings = orch.storage.get_social_settings()
+
+    db_file = ROOT / 'data' / 'studio.sqlite'
+    db_size_bytes = db_file.stat().st_size if db_file.is_file() else 0
+    table_counts = {}
+    with closing(db()) as c:
+        for tbl in ('jobs', 'agent_runs', 'catalog_sync_items', 'marketing_campaigns', 'video_productions', 'qa_reports', 'social_posts'):
+            try:
+                table_counts[tbl] = c.execute(f'SELECT COUNT(*) FROM {tbl}').fetchone()[0]
+            except Exception:
+                table_counts[tbl] = 0
+
+    return {
+        'mode': mode,
+        'integrations': {
+            'ollama': {
+                'name': 'Ollama Local AI',
+                'status': 'configured',
+                'base_url': ollama_cfg.get('ollama_base_url'),
+                'model': ollama_cfg.get('default_model'),
+                'execution_mode': ollama_cfg.get('execution_mode', 'manual'),
+            },
+            'ffmpeg': {
+                'name': 'FFmpeg Video & Audio Engine',
+                'status': 'ready' if ff_ready else 'missing',
+                'ffmpeg_path': ff_path,
+                'ffprobe_path': ffprobe_path,
+            },
+            'factori_bridge': {
+                'name': 'Factori Bridge Chrome Extension',
+                'status': 'ready' if staged else 'standby',
+                'version': ext_version,
+                'staged_items': staged['item_count'] if staged else 0,
+                'staged_pages': staged['pages_count'] if staged else 0,
+            },
+            'instagram_facebook': {
+                'name': 'Meta Instagram & Facebook Official API',
+                'status': 'connected' if enabled() else 'not_configured',
+                'credentials': {k: v for k, v in cred_status.items() if k.startswith('meta_')},
+            },
+            'youtube': {
+                'name': 'YouTube Data API v3 (Shorts)',
+                'status': 'connected' if cred_status.get('youtube_oauth_token', {}).get('configured') else 'not_configured',
+                'credentials': {k: v for k, v in cred_status.items() if k.startswith('youtube_')},
+            },
+            'factori_official_api': {
+                'name': 'Factori Official API',
+                'status': 'pending',
+                'checklist': checklist,
+            },
+        },
+        'safe_config': {
+            'weekly_slots': cfg.get('weekly_slots', []),
+            'minimum_stock': cfg.get('minimum_stock', 0),
+            'maximum_catalogue_age_hours': cfg.get('maximum_catalogue_age_hours', 0),
+            'ollama_base_url': ollama_cfg.get('ollama_base_url'),
+            'default_model': ollama_cfg.get('default_model'),
+            'execution_mode': ollama_cfg.get('execution_mode', 'manual'),
+            'max_retries': ollama_cfg.get('max_retries', 2),
+            'request_timeout_seconds': ollama_cfg.get('request_timeout_seconds', 120),
+            'global_publishing_stopped': social_settings.get('global_publishing_stopped', False),
+            'global_stop_reason': social_settings.get('global_stop_reason', ''),
+        },
+        'database': {
+            'path': str(db_file),
+            'size_bytes': db_size_bytes,
+            'table_counts': table_counts,
         },
     }
 

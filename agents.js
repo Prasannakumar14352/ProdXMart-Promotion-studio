@@ -471,6 +471,7 @@
     }
 
     agentState = data;
+    window.__latestAgentState = data;
     fillConfigForm(data.config);
     syncHistoryFilterOptions(data.agents);
     syncMarketingSkuOptions();
@@ -486,6 +487,8 @@
     renderSocialApprovalCenter(data);
     renderCards(data);
     renderHistory(data);
+    if (typeof window.renderAgentPipeline === 'function') window.renderAgentPipeline(data);
+    if (typeof window.applyHistoryExtraFilters === 'function') window.applyHistoryExtraFilters();
     schedulePoll(data.active_count || 0);
     if (hadPrevious && newlyDone && typeof refresh === 'function') {
       refresh().catch(() => {});
@@ -495,7 +498,8 @@
   function syncMarketingSkuOptions() {
     const sel = $('#mkt-skus');
     if (!sel || typeof state === 'undefined' || !state?.products) return;
-    const prev = new Set([...sel.selectedOptions].map(o => o.value));
+    const pre = Array.isArray(window.__preselectCampaignSkus) ? new Set(window.__preselectCampaignSkus) : null;
+    const prev = pre || new Set([...sel.selectedOptions].map(o => o.value));
     sel.replaceChildren();
     for (const p of state.products) {
       const opt = new Option(`${p.name} · ${p.sku}${p.issues.length ? ' (Hold)' : ''}`, p.sku);

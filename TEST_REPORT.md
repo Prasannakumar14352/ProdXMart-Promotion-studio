@@ -18,4 +18,9 @@
 - **JS Syntax Check** (`node --check editor.js`): **Passed**.
 - **Live HTTP `/state` Verification**: Confirmed `/state?mode=demo` exposes `cost`, `fees`, `media_ok`, `margin`, `photo_count`, `stock`, `issues` accurately.
 
+## Phase 3: AI Agent Command Center, Integrations Center, Execution History & Settings
+- **Implemented**: Route-scoped sub-views inside `#agents` (Agents Pipeline & Roster, Integrations Center, Execution History & Error Logs, 7-Tab Settings UI), `/api/system/integrations` backend endpoint exposing live Ollama, FFmpeg, Factori Bridge, Meta/YouTube credentials mask status, Factori API 14-point checklist (`FACTORI_API_CHECKLIST.md`), and SQLite database table counts/size diagnostics without exposing secrets, plus history search/status filters and JSON export.
+- **Python Test Suite** (`test_agents.py`): **9/9 passed** in 18.385s (includes assertions for `/js/agent_views.js`, `/api/system/integrations`, checklist status, and no secret leakage).
+- **JS Syntax Verification** (`node --check js/agent_views.js`, `js/ui_core.js`, `agents.js`): **3/3 passed**.
+
 _(Subsequent phases will append verification results below.)_
