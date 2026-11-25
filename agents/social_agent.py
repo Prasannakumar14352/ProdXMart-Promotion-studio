@@ -263,6 +263,23 @@ def reject_social_post(storage: Any, *, mode: str, post_id: str, reason: str = '
     )
 
 
+def request_changes_social_post(storage: Any, *, mode: str, post_id: str, reason: str = '') -> dict[str, Any]:
+    """Return a social post to Draft with explicit change instructions without hard-failing it."""
+    cleaned = str(reason or '').strip()
+    if not cleaned:
+        raise ValueError('Enter change instructions before requesting edits.')
+    post = storage.get_social_post(post_id, mode=mode)
+    if not post:
+        raise ValueError('Social post not found.')
+    if post['status'] == 'Published':
+        raise ValueError('Published posts cannot be modified.')
+    return storage.mark_social_rejected(
+        post_id=post_id,
+        mode=mode,
+        reason=f'Changes requested: {cleaned}',
+    )
+
+
 def edit_social_post(storage: Any, *, mode: str, post_id: str, updates: dict[str, Any]) -> dict[str, Any]:
     post = storage.get_social_post(post_id, mode=mode)
     if not post:

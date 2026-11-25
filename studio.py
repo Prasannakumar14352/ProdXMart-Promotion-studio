@@ -27,6 +27,7 @@ from agents.social_agent import (
     publish_or_prepare_social_post,
     reconcile_social_approvals,
     reject_social_post,
+    request_changes_social_post,
     schedule_social_post,
 )
 from agents.sales_analytics import (
@@ -381,6 +382,10 @@ class Handler(BaseHTTPRequestHandler):
                 orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
                 post = reject_social_post(orch.storage, mode=mode, post_id=str(data.get('post_id','')).strip(), reason=str(data.get('reason','')).strip())
                 return self.respond({'message':f"Rejected post {post['id']} (moved to Draft).",'post':post})
+            elif self.path=='/agents/social/request-changes':
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                post = request_changes_social_post(orch.storage, mode=mode, post_id=str(data.get('post_id','')).strip(), reason=str(data.get('reason','')).strip())
+                return self.respond({'message':f"Requested changes on post {post['id']} (moved to Draft).",'post':post})
             elif self.path=='/agents/social/edit':
                 orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
                 post = edit_social_post(orch.storage, mode=mode, post_id=str(data.get('post_id','')).strip(), updates=data)

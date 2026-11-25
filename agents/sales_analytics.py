@@ -195,6 +195,11 @@ def build_sales_analytics(
     for s, e in sku_map.items():
         ret_rate = round((e['returned_units'] / e['delivered_units'] * 100.0), 1) if e['delivered_units'] > 0 else 0.0
         contrib = float(e['contribution'])
+        cat_prod = products.get(s)
+        unit_price = float(cat_prod['price']) if cat_prod else (float(e['net_sales']) / e['net_units'] if e['net_units'] > 0 else 0.0)
+        unit_margin = float(cat_prod['margin']) if cat_prod else (contrib / e['net_units'] if e['net_units'] > 0 else 0.0)
+        break_even_roas = round(unit_price / unit_margin, 2) if unit_price > 0 and unit_margin > 0 else None
+        max_cpa = round(max(0.0, unit_margin), 2)
         flag = 'Healthy'
         if ret_rate >= 25.0 or (e['returned_units'] > 0 and e['net_units'] == 0):
             flag = 'High Returns'
@@ -218,6 +223,9 @@ def build_sales_analytics(
             'product_cost': float(e['product_cost']),
             'fees': float(e['fees']),
             'contribution': contrib,
+            'unit_margin': round(unit_margin, 2),
+            'max_cpa': max_cpa,
+            'break_even_roas': break_even_roas,
             'flag': flag,
         })
     sku_performance.sort(key=lambda x: (-x['contribution'], -x['net_sales'], x['sku']))
@@ -291,6 +299,8 @@ def build_sales_analytics(
             'category': p['category'],
             'price': float(p['price']),
             'margin': float(p['margin']),
+            'max_cpa': round(max(0.0, float(p['margin'])), 2),
+            'break_even_roas': round(float(p['price']) / float(p['margin']), 2) if float(p['margin']) > 0 else None,
             'stock': p['stock'],
             'reason': 'Eligible catalog margin & stock' + (' + proven contribution' if p['sku'] in sku_map and float(sku_map[p['sku']]['contribution']) > 0 else ''),
         }

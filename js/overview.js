@@ -59,21 +59,16 @@
       {
         label: 'Ready to promote',
         val: String(k.ready_products),
-        meta: `${k.ready_pct}% of catalogue eligible`,
-        cls: k.ready_products > 0 ? 'good' : 'warn',
+        meta: k.attention_products > 0
+          ? `${k.ready_pct}% eligible · ${k.attention_products} need attention`
+          : `${k.ready_pct}% of catalogue healthy`,
+        cls: k.attention_products > 0 ? 'warn' : (k.ready_products > 0 ? 'good' : ''),
         icon: 'check-circle-2',
-      },
-      {
-        label: 'Requiring attention',
-        val: String(k.attention_products),
-        meta: k.attention_products > 0 ? 'Review stock, margin or photos' : 'All products healthy',
-        cls: k.attention_products > 0 ? 'warn' : 'good',
-        icon: 'alert-triangle',
       },
       {
         label: 'Pending approvals',
         val: String(k.pending_approvals),
-        meta: k.pending_approvals > 0 ? 'Requires human sign-off' : 'Queue clear',
+        meta: k.pending_approvals > 0 ? 'Requires human sign-off' : 'Approval queue clear',
         cls: k.pending_approvals > 0 ? 'warn' : '',
         icon: 'shield-check',
       },
@@ -198,7 +193,7 @@
     const list = data.campaigns || [];
     if (!list.length) {
       const empty = el('div', 'empty-state');
-      empty.append(el('strong', 'No attributed campaign sales yet'), el('p', 'Campaign performance bars populate automatically once orders carry utm_campaign IDs.'));
+      empty.append(el('strong', '', 'No attributed campaign sales yet'), el('p', '', 'Campaign performance bars populate automatically once orders carry utm_campaign IDs.'));
       box.append(empty);
       return;
     }
@@ -225,13 +220,14 @@
     const items = data.recommended_products || [];
     if (!items.length) {
       const empty = el('div', 'empty-state');
-      empty.append(el('strong', 'No eligible products ready to promote'), el('p', 'Add products with stock ≥ 3, positive margin, photos and media permission in Product Catalogue.'));
+      empty.append(el('strong', '', 'No eligible products ready to promote'), el('p', '', 'Add products with stock ≥ 3, positive margin, photos and media permission in Product Catalogue.'));
       box.append(empty);
       return;
     }
+    const scroller = el('div', 'table-scroll');
     const table = el('table', 'data-table');
     const thead = table.createTHead().insertRow();
-    ['Product', 'Selling price', 'Unit margin', ''].forEach(h => thead.append(el('th', '', h)));
+    ['Product', 'Price', 'Margin', ''].forEach(h => thead.append(el('th', '', h)));
     const tbody = table.createTBody();
     for (const p of items) {
       const tr = tbody.insertRow();
@@ -248,24 +244,28 @@
         wrap.append(img);
       }
       const meta = el('div', '');
-      meta.append(el('div', 'list-row-title', p.name), el('div', 'list-row-sub', `${p.category} · ${p.sku} · ${p.stock} in stock`));
+      const titleDiv = el('div', 'list-row-title', p.name);
+      titleDiv.title = p.name;
+      meta.append(titleDiv, el('div', 'list-row-sub', `${p.category} · ${p.sku} · ${p.stock} in stock`));
       wrap.append(meta);
       prodCell.append(wrap);
       tr.insertCell().textContent = inr(p.price);
       tr.insertCell().textContent = inr(p.margin);
       const actCell = tr.insertCell();
-      const btn = el('button', 'btn btn-ghost', 'Promote ↗');
+      const btn = el('button', 'btn btn-sm btn-ghost', 'Promote');
       btn.type = 'button';
       btn.onclick = () => {
-        const mktSelect = document.getElementById('mkt-skus');
-        if (mktSelect) {
-          Array.from(mktSelect.options).forEach(opt => { opt.selected = opt.value === p.sku; });
+        if (typeof promoteProductSkus === 'function') promoteProductSkus([p.sku]);
+        else {
+          const mktSelect = document.getElementById('mkt-skus');
+          if (mktSelect) Array.from(mktSelect.options).forEach(opt => { opt.selected = opt.value === p.sku; });
+          window.StudioUI?.navigate('campaigns');
         }
-        window.StudioUI?.navigate('campaigns');
       };
       actCell.append(btn);
     }
-    box.append(table);
+    scroller.append(table);
+    box.append(scroller);
   }
 
   function renderAgentActivity(data) {
@@ -281,7 +281,7 @@
     const runs = data.agent_activity || [];
     if (!runs.length) {
       const empty = el('div', 'empty-state');
-      empty.append(el('strong', 'No agent runs recorded yet'), el('p', 'Agents execute manually when you click Run in AI Agent Center.'));
+      empty.append(el('strong', '', 'No agent runs recorded yet'), el('p', '', 'Agents execute manually when you click Run in AI Agent Center.'));
       box.append(empty);
       return;
     }
@@ -310,7 +310,7 @@
       const issues = data.attention_breakdown || [];
       if (!issues.length) {
         const empty = el('div', 'empty-state');
-        empty.append(el('strong', 'No products need attention'), el('p', 'All products meet stock, margin and media requirements.'));
+        empty.append(el('strong', '', 'No products need attention'), el('p', '', 'All products meet stock, margin and media requirements.'));
         attBox.append(empty);
       } else {
         const stack = el('div', 'list-stack');
@@ -339,7 +339,7 @@
       const upcoming = data.upcoming_promotions || [];
       if (!upcoming.length) {
         const empty = el('div', 'empty-state');
-        empty.append(el('strong', 'No upcoming promotions'), el('p', 'Approve and schedule a campaign or Reel to see it here.'));
+        empty.append(el('strong', '', 'No upcoming promotions'), el('p', '', 'Approve and schedule a campaign or Reel to see it here.'));
         upBox.append(empty);
       } else {
         const stack = el('div', 'list-stack');

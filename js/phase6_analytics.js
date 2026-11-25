@@ -116,10 +116,13 @@
     const t = document.createElement('table');
     t.className = 'data-table';
     const th = t.createTHead().insertRow();
-    ['SKU / Product', 'Orders', 'Net Units', 'Returns', 'Net Sales', 'Cost + Fees', 'Contribution', 'Signal'].forEach(c => th.append(make('th', c)));
+    ['SKU / Product', 'Orders', 'Net Units', 'Returns', 'Net Sales', 'Cost + Fees', 'Contribution', 'Max CPA / BE-ROAS', 'Signal'].forEach(c => th.append(make('th', c)));
     const tb = t.createTBody();
     for (const r of rows) {
       const tr = tb.insertRow();
+      const beTxt = r.break_even_roas !== null && r.break_even_roas !== undefined
+        ? `${inr(r.max_cpa)} / ${r.break_even_roas}x`
+        : 'N/A';
       tr.append(
         make('td', `${r.name} (${r.sku})`),
         make('td', String(r.orders)),
@@ -127,13 +130,16 @@
         make('td', `${r.returned_units}/${r.delivered_units} (${r.return_rate_pct}%)`),
         make('td', inr(r.net_sales)),
         make('td', inr(r.product_cost + r.fees)),
-        make('td', inr(r.contribution), r.contribution > 0 ? 'margin-positive' : 'margin-negative')
+        make('td', inr(r.contribution), r.contribution > 0 ? 'margin-positive' : 'margin-negative'),
+        make('td', beTxt)
       );
       const tdFlag = tr.insertCell();
       const b = make('span', r.flag, 'badge ' + (r.flag === 'Promote Next' ? 'success' : r.flag === 'High Returns' ? 'warning' : r.contribution <= 0 ? 'error' : ''));
       tdFlag.append(b);
     }
-    host.replaceChildren(t);
+    const scroller = make('div', '', 'table-scroll');
+    scroller.append(t);
+    host.replaceChildren(scroller);
   }
 
   function renderExpensesView(data) {
@@ -204,8 +210,12 @@
     const m = typeof mode === 'function' ? mode() : 'store';
     const xlsxLink = document.getElementById('an-export-xlsx');
     const csvLink = document.getElementById('an-export-csv');
+    const ordLink = document.getElementById('an-export-orders-csv');
+    const expLink = document.getElementById('an-export-expenses-csv');
     if (xlsxLink) xlsxLink.href = '/api/analytics/export.xlsx?' + new URLSearchParams({ mode: m });
     if (csvLink) csvLink.href = '/api/analytics/export.csv?' + new URLSearchParams({ mode: m, kind: 'sku' });
+    if (ordLink) ordLink.href = '/api/analytics/export.csv?' + new URLSearchParams({ mode: m, kind: 'orders' });
+    if (expLink) expLink.href = '/api/analytics/export.csv?' + new URLSearchParams({ mode: m, kind: 'expenses' });
 
     const params = new URLSearchParams({ mode: m });
     const sku = document.getElementById('an-filter-sku')?.value.trim() || '';

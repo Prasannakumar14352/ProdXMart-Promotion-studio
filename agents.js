@@ -158,6 +158,7 @@
       runBtn.type = 'button';
       runBtn.className = 'primary';
       runBtn.disabled = !agent.enabled || isActive;
+      runBtn.title = !agent.enabled ? 'Enable this agent first' : isActive ? 'Task already running or queued' : 'Run this agent manually';
       runBtn.onclick = async () => {
         runBtn.disabled = true;
         try {
@@ -174,6 +175,7 @@
       const stopBtn = element('button', 'Stop');
       stopBtn.type = 'button';
       stopBtn.disabled = !isActive;
+      stopBtn.title = isActive ? 'Request graceful stop for active run' : 'No active run to stop';
       stopBtn.onclick = async () => {
         if (!currentRun) return;
         stopBtn.disabled = true;
@@ -189,6 +191,7 @@
       const retryBtn = element('button', 'Retry');
       retryBtn.type = 'button';
       retryBtn.disabled = !canRetry;
+      retryBtn.title = canRetry ? 'Retry the failed or cancelled run' : (!agent.enabled ? 'Agent is disabled' : 'Available only after a failed or cancelled run');
       retryBtn.onclick = async () => {
         if (!currentRun) return;
         retryBtn.disabled = true;
@@ -895,7 +898,9 @@
       approveBtn.type = 'button';
       approveBtn.className = 'primary';
       approveBtn.disabled = prod.qa_status !== 'passed';
+      approveBtn.title = prod.qa_status !== 'passed' ? 'Automated FFprobe QA must pass before human sign-off' : 'Approve video for Social Media handoff';
       approveBtn.onclick = async () => {
+        approveBtn.disabled = true;
         try {
           const res = await agentPost('/agents/qa/review', {
             production_id: prod.id,
@@ -907,6 +912,7 @@
           await refreshAgents();
         } catch (err) {
           notice(err.message, true);
+          approveBtn.disabled = prod.qa_status !== 'passed';
         }
       };
       const rejectBtn = element('button', 'Reject');
@@ -1166,33 +1172,63 @@
       approveBtn.type = 'button';
       approveBtn.className = 'primary';
       approveBtn.disabled = !['Draft', 'Awaiting Approval'].includes(post.status);
+      approveBtn.title = ['Draft', 'Awaiting Approval'].includes(post.status) ? 'Explicitly approve this post for manual package / scheduling' : `Cannot approve from status "${post.status}"`;
       approveBtn.onclick = async () => {
+        approveBtn.disabled = true;
         try {
           const res = await agentPost('/agents/social/approve', { post_id: post.id });
           notice(res.message);
           await refreshAgents();
         } catch (err) {
           notice(err.message, true);
+          approveBtn.disabled = !['Draft', 'Awaiting Approval'].includes(post.status);
+        }
+      };
+
+      const reqChangesBtn = element('button', 'Request Changes');
+      reqChangesBtn.type = 'button';
+      reqChangesBtn.className = 'btn-warning-outline';
+      reqChangesBtn.disabled = ro;
+      reqChangesBtn.title = ro ? 'Published posts cannot be altered' : 'Return post to Draft with change notes';
+      reqChangesBtn.onclick = async () => {
+        const reason = window.StudioUI?.promptReason
+          ? await window.StudioUI.promptReason('Request Changes', `Specify copy, hashtag or product edits needed for ${post.platform} (${post.sku}):`, 'Request Changes')
+          : window.prompt('Enter requested changes:');
+        if (reason === null) return;
+        reqChangesBtn.disabled = true;
+        try {
+          const res = await agentPost('/agents/social/request-changes', { post_id: post.id, reason: reason.trim() });
+          notice(res.message);
+          await refreshAgents();
+        } catch (err) {
+          notice(err.message, true);
+          reqChangesBtn.disabled = ro;
         }
       };
 
       const rejectBtn = element('button', 'Reject');
       rejectBtn.type = 'button';
+      rejectBtn.className = 'btn-danger-outline';
       rejectBtn.disabled = ro;
+      rejectBtn.title = ro ? 'Published posts cannot be rejected' : 'Reject post with mandatory audit reason';
       rejectBtn.onclick = async () => {
-        const reason = window.prompt('Enter mandatory rejection reason for operator audit log:');
+        const reason = window.StudioUI?.promptReason
+          ? await window.StudioUI.promptReason('Reject Post', `Enter mandatory rejection reason for ${post.platform} (${post.sku}):`, 'Reject Post')
+          : window.prompt('Enter mandatory rejection reason for operator audit log:');
         if (reason === null) return;
         const cleaned = reason.trim();
         if (!cleaned) {
           notice('Rejection reason is required before rejecting a post.', true);
           return;
         }
+        rejectBtn.disabled = true;
         try {
           const res = await agentPost('/agents/social/reject', { post_id: post.id, reason: cleaned });
           notice(res.message);
           await refreshAgents();
         } catch (err) {
           notice(err.message, true);
+          rejectBtn.disabled = ro;
         }
       };
 
@@ -1204,17 +1240,20 @@
       const schedBtn = element('button', 'Schedule');
       schedBtn.type = 'button';
       schedBtn.disabled = !['Approved', 'Scheduled'].includes(post.status);
+      schedBtn.title = ['Approved', 'Scheduled'].includes(post.status) ? 'Schedule post in IST timezone' : 'Approve post before scheduling';
       schedBtn.onclick = async () => {
+        schedBtn.disabled = true;
         try {
           const res = await agentPost('/agents/social/schedule', { post_id: post.id, scheduled_at: schedInput.value });
           notice(res.message);
           await refreshAgents();
         } catch (err) {
           notice(err.message, true);
+          schedBtn.disabled = !['Approved', 'Scheduled'].includes(post.status);
         }
       };
 
-      actions.append(saveEditBtn, regenBtn, approveBtn, rejectBtn, schedInput, schedBtn);
+      actions.append(saveEditBtn, regenBtn, approveBtn, reqChangesBtn, rejectBtn, schedInput, schedBtn);
 
       if (['Approved', 'Scheduled'].includes(post.status) && !stopped) {
         const dl = element('a', 'Download Manual Package (.zip)');

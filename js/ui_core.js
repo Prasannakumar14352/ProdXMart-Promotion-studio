@@ -93,10 +93,51 @@
     });
   }
 
+  function promptReason(title, subtitle, submitLabel) {
+    return new Promise(resolve => {
+      const dlg = document.getElementById('reason-dialog');
+      if (!dlg) { resolve(window.prompt(subtitle || title)); return; }
+      document.getElementById('reason-title').textContent = title || 'Operator Note';
+      document.getElementById('reason-subtitle').textContent = subtitle || '';
+      const input = document.getElementById('reason-input');
+      const err = document.getElementById('reason-error');
+      const okBtn = document.getElementById('reason-submit');
+      const cancelBtn = document.getElementById('reason-cancel');
+      input.value = '';
+      err.textContent = '';
+      okBtn.textContent = submitLabel || 'Submit';
+      function finish(val) {
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+        dlg.close();
+        resolve(val);
+      }
+      okBtn.onclick = () => {
+        const cleaned = input.value.trim();
+        if (!cleaned) {
+          err.textContent = 'Please enter a short reason or note before submitting.';
+          input.focus();
+          return;
+        }
+        finish(cleaned);
+      };
+      cancelBtn.onclick = () => finish(null);
+      dlg.showModal();
+      input.focus();
+    });
+  }
+
   function navigate(route, opts) {
     const targetRoute = ROUTE_META[route] ? route : 'overview';
     currentRoute = targetRoute;
     localStorage.setItem('prodx_route', targetRoute);
+    if (!opts?.skipUrlSync) {
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set('route', targetRoute);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch {}
+    }
     const meta = ROUTE_META[targetRoute];
 
     document.querySelectorAll('.nav-item[data-route]').forEach(btn => {
@@ -132,7 +173,7 @@
     if (pageHead) pageHead.hidden = meta.section === 'overview';
 
     if (typeof window.syncLegacyHeading === 'function') {
-      window.syncLegacyHeading(meta.section, meta.title);
+      window.syncLegacyHeading(meta.section, meta.title, targetRoute);
     }
 
     const shell = document.getElementById('app-shell');
@@ -279,11 +320,21 @@
       syncTag();
     }
 
+    const params = new URLSearchParams(location.search);
+    const urlMode = params.get('mode');
+    if (modeSel && (urlMode === 'demo' || urlMode === 'store')) {
+      modeSel.value = urlMode;
+      const syncTag = () => { if (modeBadge) modeBadge.hidden = modeSel.value !== 'demo'; };
+      syncTag();
+    }
+    const urlRoute = params.get('route');
+    if (urlRoute && ROUTE_META[urlRoute]) currentRoute = urlRoute;
+
     // Honor legacy deep-link hashes used by Factori Chrome extension.
     if (location.hash.startsWith('#factori=')) currentRoute = 'catalogue';
     if (location.hash.startsWith('#catalog-sync=')) currentRoute = 'agents';
 
-    navigate(currentRoute, { skipScroll: true });
+    navigate(currentRoute, { skipScroll: true, skipUrlSync: true });
     hydrateIcons(document);
   }
 
@@ -293,6 +344,7 @@
     hydrateIcons,
     showToast,
     confirmAction,
+    promptReason,
     updateNotifications,
     getRoute: () => currentRoute,
   };

@@ -3,6 +3,7 @@ const dialog = $('#editor');
 let editing = null;
 let selection = [];
 let saving = false;
+let formDirty = false;
 let catView = localStorage.getItem('prodx_cat_view') === 'grid' ? 'grid' : 'table';
 let catPage = 1;
 let catPageSize = 12;
@@ -309,7 +310,8 @@ function renderProducts() {
       const priceCell = tr.insertCell(); priceCell.textContent = money(p.price);
       const costCell = tr.insertCell(); costCell.textContent = money(productCostValue(p));
       const marginCell = tr.insertCell();
-      const mSpan = element('span', money(p.margin));
+      const pct = p.price > 0 ? Math.round((p.margin / p.price) * 100) : 0;
+      const mSpan = element('span', `${money(p.margin)} (${pct}%)`);
       mSpan.className = p.margin <= 0 ? 'margin-negative' : 'margin-positive';
       marginCell.append(mSpan);
 
@@ -334,12 +336,15 @@ function renderProducts() {
         actWrap.append(pb);
       }
       if (p.product_url) {
-        const lnk = element('a', 'Store'); lnk.href = p.product_url; lnk.target = '_blank'; lnk.rel = 'noopener noreferrer';
+        const lnk = element('a', 'Store'); lnk.className = 'btn btn-sm'; lnk.href = p.product_url; lnk.target = '_blank'; lnk.rel = 'noopener noreferrer';
         actWrap.append(lnk);
       }
       actions.append(actWrap);
     }
-    $('#products').replaceChildren(t);
+    const scroller = document.createElement('div');
+    scroller.className = 'table-scroll';
+    scroller.append(t);
+    $('#products').replaceChildren(scroller);
   }
 
   if (pagEl) {
@@ -479,7 +484,7 @@ async function openEditor(sku, imported){
       if(result.added)form.elements.media_ok.checked=false;
       if(result.error)$('#form-error').textContent=result.error;
     }
-    showPhotos();margin();dialog.showModal();dialog.querySelector('.form-scroll').scrollTop=0;
+    showPhotos();margin();formDirty=Boolean(imported);dialog.showModal();dialog.querySelector('.form-scroll').scrollTop=0;
     (imported && p ? form.elements.price : form.elements.product_url).focus();
   }catch(e){notice(e.message,true);}
 }
@@ -589,10 +594,23 @@ $('#fetch-photos').onclick=async()=>{
   finally{saving=false;button.disabled=false;$('#save').disabled=false;}
 };
 $('#add').onclick=()=>openEditor();
-function closeForm(){if(!saving)dialog.close();}
+form.addEventListener('input', () => { formDirty = true; });
+form.addEventListener('change', () => { formDirty = true; });
+async function closeForm(){
+  if(saving)return;
+  if(formDirty && window.StudioUI?.confirmAction){
+    const ok = await window.StudioUI.confirmAction('Discard unsaved changes?', 'You have edited fields or photos in this product form.', 'Discard changes');
+    if(!ok)return;
+  }
+  formDirty = false;
+  dialog.close();
+}
 $('#cancel').onclick=closeForm;$('#close').onclick=closeForm;
-dialog.addEventListener('cancel',e=>{if(saving)e.preventDefault();});
-dialog.addEventListener('close',()=>{selection.filter(x=>x.file).forEach(x=>URL.revokeObjectURL(x.preview));selection=[];});
+dialog.addEventListener('cancel',e=>{
+  if(saving){e.preventDefault();return;}
+  if(formDirty){e.preventDefault();closeForm();}
+});
+dialog.addEventListener('close',()=>{formDirty=false;selection.filter(x=>x.file).forEach(x=>URL.revokeObjectURL(x.preview));selection=[];});
 function addPhotos(files){
   if(saving)return;
   $('#form-error').textContent='';

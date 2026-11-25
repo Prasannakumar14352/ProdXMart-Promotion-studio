@@ -74,7 +74,7 @@
         </div>
         <div class="global-search">
           <span class="search-icon"><i data-lucide="search" width="15" height="15"></i></span>
-          <input type="search" id="global-search-input" placeholder="Search products, SKUs, categories…" aria-label="Global search">
+          <input type="search" id="global-search-input" class="global-search-input" placeholder="Search products, SKUs, categories…" aria-label="Global search">
           <kbd>Ctrl+K</kbd>
         </div>
       </div>
@@ -120,8 +120,8 @@
           <p id="sub"></p>
         </div>
         <div class="cardactions">
-          <button id="add" class="primary">＋ Add product</button>
-          <button id="generate">Generate weekly batch</button>
+          <button id="add" class="btn btn-primary" hidden><i data-lucide="plus" width="15" height="15"></i><span>Add product</span></button>
+          <button id="generate" class="btn" hidden><i data-lucide="sparkles" width="15" height="15"></i><span>Generate weekly batch</span></button>
         </div>
       </section>
 
@@ -346,9 +346,11 @@
                 <p class="hint">Reconciled directly with local order lines and expenses. Returns/refunds are deducted from net sales and bank settlements are excluded from revenue.</p>
               </div>
               <div class="agent-config-actions">
-                <a id="an-export-xlsx" class="btn-ghost" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;font-size:13px" href="/api/analytics/export.xlsx?mode=store">Export Excel (.xlsx)</a>
-                <a id="an-export-csv" class="btn-ghost" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;font-size:13px" href="/api/analytics/export.csv?mode=store&amp;kind=sku">Export SKUs (.csv)</a>
-                <label class="picker" style="margin:0;padding:7px 12px">Import .xlsx / .csv<input type="file" id="an-import-file" accept=".xlsx,.csv,text/csv"></label>
+                <a id="an-export-xlsx" class="btn" href="/api/analytics/export.xlsx?mode=store">Export Excel (.xlsx)</a>
+                <a id="an-export-csv" class="btn" href="/api/analytics/export.csv?mode=store&amp;kind=sku">Export SKUs (.csv)</a>
+                <a id="an-export-orders-csv" class="btn" href="/api/analytics/export.csv?mode=store&amp;kind=orders">Export Orders (.csv)</a>
+                <a id="an-export-expenses-csv" class="btn" href="/api/analytics/export.csv?mode=store&amp;kind=expenses">Export Expenses (.csv)</a>
+                <label class="picker btn" style="margin:0">Import .xlsx / .csv<input type="file" id="an-import-file" accept=".xlsx,.csv,text/csv"></label>
               </div>
             </div>
             <div class="cat-toolbar" style="margin-top:12px">
@@ -711,8 +713,21 @@
   <h2 id="confirm-title" class="card-title">Confirm action</h2>
   <p id="confirm-message" class="card-sub" style="margin-top:8px"></p>
   <div class="confirm-actions">
-    <button type="button" id="confirm-cancel">Cancel</button>
-    <button type="button" id="confirm-ok" class="btn-primary">Confirm</button>
+    <button type="button" id="confirm-cancel" class="btn">Cancel</button>
+    <button type="button" id="confirm-ok" class="btn btn-primary">Confirm</button>
+  </div>
+</dialog>
+
+<dialog id="reason-dialog" class="confirm-dialog" aria-labelledby="reason-title">
+  <h2 id="reason-title" class="card-title">Operator Review Note</h2>
+  <p id="reason-subtitle" class="card-sub" style="margin-top:6px"></p>
+  <label style="display:block;margin-top:12px;font-size:13px;font-weight:600">Reason / instructions (required)
+    <textarea id="reason-input" rows="3" style="width:100%;margin-top:6px" placeholder="Specify product accuracy, price, pronunciation or caption changes…"></textarea>
+  </label>
+  <p id="reason-error" class="agent-error-text" style="margin-top:6px" role="alert"></p>
+  <div class="confirm-actions">
+    <button type="button" id="reason-cancel" class="btn">Cancel</button>
+    <button type="button" id="reason-submit" class="btn btn-primary">Submit</button>
   </div>
 </dialog>
 

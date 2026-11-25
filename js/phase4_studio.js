@@ -197,7 +197,29 @@
         }
         window.StudioUI?.navigate('video');
       };
-      act.append(sendVid);
+      const dupBtn = make('button', 'Duplicate Campaign');
+      dupBtn.type = 'button';
+      dupBtn.onclick = () => {
+        const typeEl = document.getElementById('mkt-campaign-type');
+        const langEl = document.getElementById('mkt-language');
+        const catEl = document.getElementById('mkt-category');
+        const seaEl = document.getElementById('mkt-season');
+        const skuSel = document.getElementById('mkt-skus');
+        if (typeEl) { typeEl.value = c.campaign_type; typeEl.dispatchEvent(new Event('change')); }
+        if (langEl) langEl.value = c.language;
+        if (catEl) catEl.value = c.category || '';
+        if (seaEl) seaEl.value = c.season_theme || '';
+        const skusList = c.selected_skus || [];
+        window.__preselectCampaignSkus = skusList;
+        if (skuSel) Array.from(skuSel.options).forEach(o => { o.selected = skusList.includes(o.value); });
+        const wiz = document.getElementById('campaign-wizard');
+        if (wiz) wiz.hidden = false;
+        wizardStep = 2;
+        renderWizard();
+        wiz?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (typeof notice === 'function') notice(`Duplicated campaign settings for ${(skusList || []).join(', ') || c.campaign_type} into Wizard.`);
+      };
+      act.append(sendVid, dupBtn);
       card.append(top, skus, act);
       host.append(card);
     }

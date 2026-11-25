@@ -44,3 +44,14 @@
 - **JS Syntax Verification (`node --check`)**: All 9 scripts passed (`ui.js`, `editor.js`, `agents.js`, `js/ui_core.js`, `js/overview.js`, `js/agent_views.js`, `js/phase4_studio.js`, `js/phase5_publishing.js`, `js/phase6_analytics.js`).
 - **Live HTTP Endpoint & Workspace Isolation Verification**: All 24 routes returned `200 OK` (`/`, all CSS/JS/vendor assets, `/state?mode=demo`, `/state?mode=store`, `/api/overview`, `/api/system/integrations`, `/api/analytics`, `/api/analytics/export.xlsx`, `/api/analytics/export.csv`); verified `demo` vs `store` isolation and presence of all 12 navigation routes.
 - **Browser Visual QA Limitation**: Chrome DevTools MCP reported `Could not find DevToolsActivePort` at `C:\Users\PrasannaKumarS\AppData\Local\Google\Chrome\User Data\DevToolsActivePort`; visual screenshot capture in live Chrome requires enabling remote debugging (`chrome://inspect/#remote-debugging`).
+
+## Complete Application Audit, UI/UX Refinement & Functional Fixes (`feature/audit-refinement`)
+- **Python Full Regression Suite**: **38/38 passed** in `103.595s` (`OK`), including `break_even_roas` & `max_cpa` math checks in `test_sales_analytics.py`.
+- **Node Factori Bridge Full Suite**: **11/11 passed** (`test_factori_details.cjs` 6/6 in `26.69ms`, `test_factori_pagination.cjs` 5/5 in `40.79ms`).
+- **JS Syntax Verification (`node --check`)**: **9/9 passed** across all frontend JS scripts.
+- **Headless Microsoft Edge Visual & Responsive Verification**:
+  - Captured and visually inspected `before_overview_1440.png` and 16 `after_*.png` screenshots across **all 12 routes** (`overview`, `catalogue`, `agents`, `campaigns`, `video`, `approvals`, `calendar`, `analytics`, `expenses`, `integrations`, `history`, `settings`), both workspaces (`demo` and `store`), and multiple desktop/tablet viewports (`1920x1080`, `1440x900`, `1366x768`, `1280x720`, `768x1024`).
+  - Confirmed zero text-overlap on global search, 6-card symmetric KPI grid, clean empty states, uniform `36px`/`30px` button alignment, top-right action bars, masked `.picker` file inputs, clean long-path wrapping in Integrations, and zero horizontal clipping on `Recommended products`.
+- **Known Limitations**:
+  - Interactive Chrome DevTools DOM console event clicking remains blocked until Chrome remote debugging (`DevToolsActivePort`) is enabled in the user's Chrome session; visual inspection was performed via Microsoft Edge headless screenshot rendering.
+  - `edit_file` permission on `test_social_approval.py` was declined during this pass, so the new `POST /agents/social/request-changes` backend handler is verified via code inspection + syntax/import checks in the suite while existing `test_social_approval.py` remains untouched and passing (`3/3`).

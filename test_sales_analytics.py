@@ -78,6 +78,9 @@ class SalesAnalyticsTests(unittest.TestCase):
         self.assertEqual(store_data['summary']['settlement_total'], 950.0)
         # Valid attributable revenue + ad spend -> exact ROAS = 1000 / 200 = 5.0
         self.assertEqual(store_data['summary']['roas'], 5.0)
+        self.assertEqual(len(store_data['sku_performance']), 1)
+        self.assertGreater(store_data['sku_performance'][0]['break_even_roas'], 0)
+        self.assertGreater(store_data['sku_performance'][0]['max_cpa'], 0)
 
         code, body = invoke_handler('GET', '/api/analytics?mode=store', orchestrator=orch)
         self.assertEqual(code, 200)

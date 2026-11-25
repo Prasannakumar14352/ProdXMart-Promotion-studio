@@ -1,6 +1,8 @@
 const $ = s => document.querySelector(s);
 let state, busy = false, sequence = 0;
 let activeTab = 'overview';
+let activeRouteKey = 'overview';
+let activeRouteTitle = 'Business Overview';
 const mode = () => $('#mode').value;
 const money = n => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n);
 function element(tag, text) { const e = document.createElement(tag); e.textContent = text; return e; }
@@ -30,9 +32,6 @@ async function refresh() {
   }
   state = s;
   const demo = mode() === 'demo';
-  $('#add').hidden = demo;
-  $('#factori-help').hidden = demo;
-  $('#factori-review').hidden = demo || !importedCard;
   updateHeading();
   $('#conn').textContent = demo
     ? 'Demo workspace · local simulation'
@@ -76,8 +75,10 @@ async function refresh() {
   $('#approve').disabled = !s.jobs.some(j => j.status === 'Draft');
   if (typeof window.refreshOverview === 'function') window.refreshOverview().catch(() => {});
   if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
+  if (typeof window.refreshAgentViews === 'function') window.refreshAgentViews(window.StudioUI?.getRoute?.() || activeRouteKey).catch(() => {});
   if (typeof window.refreshPublishingCalendar === 'function') window.refreshPublishingCalendar();
   if (typeof window.refreshSalesAnalytics === 'function') window.refreshSalesAnalytics().catch(() => {});
+  if (typeof window.StudioUI?.hydrateIcons === 'function') window.StudioUI.hydrateIcons(document);
 }
 async function post(path, data) {
   if (busy) return; busy = true; document.body.setAttribute('aria-busy', 'true'); $('#mode').disabled = true; $('#generate').disabled = true;
@@ -94,27 +95,42 @@ async function post(path, data) {
 function change(action, ids) { post('/decide', { action, ids, start: $('#start').value }); }
 $('#approve').onclick = () => change('approve', state.jobs.filter(j => j.status === 'Draft').reverse().map(j => j.id));
 $('#generate').onclick = () => post('/generate', {});
-$('#mode').onchange = () => { state = null; $('#products').replaceChildren(); $('#count').textContent = ''; notice(''); refresh().catch(e => notice(e.message, true)); };
+$('#mode').onchange = () => {
+  state = null; $('#products').replaceChildren(); $('#count').textContent = ''; notice('');
+  const url = new URL(location.href);
+  url.searchParams.set('mode', mode());
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+  if ($('#factori-help')) $('#factori-help').hidden = mode() === 'demo';
+  if ($('#factori-review')) $('#factori-review').hidden = mode() === 'demo' || !importedCard;
+  updateHeading();
+  refresh().catch(e => notice(e.message, true));
+};
 $('#refresh').onclick = () => { notice(''); refresh().catch(e => notice(e.message, true)); };
 
-function syncLegacyHeading(section, routeTitle) {
+function syncLegacyHeading(section, routeTitle, routeKey) {
   activeTab = section;
+  if (routeTitle) activeRouteTitle = routeTitle;
+  if (routeKey) activeRouteKey = routeKey;
   const demo = mode() === 'demo';
   const info = {
     overview: ['Business Overview', ''],
     catalogue: ['Product catalogue', demo ? 'Sample products for trying the Reel workflow.' : 'Manage your store links, photos, prices and stock.'],
-    queue: [routeTitle || 'Reel queue', 'Review and schedule your Telugu product Reels.'],
-    report: [routeTitle || 'Sales report', 'Delivered orders, returns and operating profit for this workspace.'],
-    agents: [routeTitle || 'AI Agent Center', 'Manually orchestrate local Ollama agents, video rendering, QA and social approval packages.'],
+    queue: [activeRouteTitle || 'Publishing Calendar', 'Review, schedule and export approved Reels & social posts (IST).'],
+    report: [activeRouteTitle || 'Sales report', 'Delivered orders, returns, expenses and operating profit for this workspace.'],
+    agents: [activeRouteTitle || 'AI Agent Center', 'Manually orchestrate local Ollama agents, video rendering, QA and social approval packages.'],
   };
   const pair = info[section] || info.catalogue;
   if ($('#page-title')) $('#page-title').textContent = pair[0];
   if ($('#sub')) $('#sub').textContent = pair[1];
+  if ($('#add')) $('#add').hidden = demo || activeRouteKey !== 'catalogue';
+  if ($('#generate')) $('#generate').hidden = !['calendar', 'video'].includes(activeRouteKey);
+  if ($('#factori-help')) $('#factori-help').hidden = demo;
+  if ($('#factori-review') && typeof importedCard !== 'undefined') $('#factori-review').hidden = demo || !importedCard;
 }
 window.syncLegacyHeading = syncLegacyHeading;
 
 function updateHeading() {
-  syncLegacyHeading(activeTab);
+  syncLegacyHeading(activeTab, activeRouteTitle, activeRouteKey);
 }
 function openTab(tab) {
   const map = { catalogue: 'catalogue', queue: 'calendar', report: 'analytics', agents: 'agents', overview: 'overview' };
