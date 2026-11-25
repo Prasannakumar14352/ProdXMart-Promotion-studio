@@ -489,6 +489,7 @@
     renderHistory(data);
     if (typeof window.renderAgentPipeline === 'function') window.renderAgentPipeline(data);
     if (typeof window.applyHistoryExtraFilters === 'function') window.applyHistoryExtraFilters();
+    if (typeof window.refreshPhase4Studio === 'function') window.refreshPhase4Studio();
     schedulePoll(data.active_count || 0);
     if (hadPrevious && newlyDone && typeof refresh === 'function') {
       refresh().catch(() => {});

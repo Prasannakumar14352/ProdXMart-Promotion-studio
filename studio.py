@@ -42,6 +42,7 @@ ASSETS={
     '/js/ui_core.js':('js/ui_core.js','text/javascript'),
     '/js/overview.js':('js/overview.js','text/javascript'),
     '/js/agent_views.js':('js/agent_views.js','text/javascript'),
+    '/js/phase4_studio.js':('js/phase4_studio.js','text/javascript'),
     '/vendor/lucide.min.js':('assets/vendor/lucide.min.js','text/javascript'),
     '/vendor/chart.umd.min.js':('assets/vendor/chart.umd.min.js','text/javascript'),
 }

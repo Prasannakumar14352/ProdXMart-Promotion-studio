@@ -7,7 +7,7 @@ Branch: `feature/premium-ui-redesign`
 - [x] Phase 1: Design system, collapsible sidebar, sticky header, reusable components & Business Overview Dashboard
 - [x] Phase 2: Product Catalogue & Product Editor enhancements
 - [x] Phase 3: AI Agent Command Center, Integrations Center, Execution History & Settings
-- [ ] Phase 4: Campaign Management & Professional Video Promotion Studio (In Progress)
-- [ ] Phase 5: Approval Center & Publishing Calendar
+- [x] Phase 4: Campaign Management & Professional Video Promotion Studio
+- [ ] Phase 5: Approval Center & Publishing Calendar (In Progress)
 - [ ] Phase 6: Sales Analytics & Expenses/Profit Management
 - [ ] Phase 7: End-to-end integration, polish & final regression

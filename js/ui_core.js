@@ -139,6 +139,7 @@
     if (meta.section === 'agents') {
       if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
       if (typeof window.refreshAgentViews === 'function') window.refreshAgentViews(targetRoute).catch(() => {});
+      if (typeof window.refreshPhase4Studio === 'function') window.refreshPhase4Studio(targetRoute);
     }
   }
 

@@ -347,38 +347,84 @@
 
         <div id="marketing-panel" data-subview="campaigns" class="agent-config-panel">
           <div class="agent-panel-head">
-            <div><h2>Marketing Agent · Campaigns, Preview &amp; Video Handoff</h2><p class="hint">Generate grounded English or Telugu scripts, storyboards, captions and CTAs from verified Sales/Catalogue products without inventing prices, discounts, reviews or stock.</p></div>
+            <div><h2>Campaign Management &amp; Builder</h2><p class="hint">Create grounded English or Telugu campaigns from verified Catalogue/Sales products, review storyboards, and pass handoffs cleanly to Video Studio.</p></div>
             <div class="agent-config-actions">
+              <button type="button" id="camp-toggle-wizard">Toggle 6-Step Wizard</button>
               <button type="button" id="mkt-generate" class="primary">Generate Marketing Campaign</button>
             </div>
           </div>
-          <div class="agent-config-grid">
-            <label>Campaign type<select id="mkt-campaign-type"><option value="single_product">Single product</option><option value="multi_product">Multi-product</option><option value="category">Category-based</option><option value="seasonal">Seasonal</option></select></label>
-            <label>Language<select id="mkt-language"><option value="te">Telugu (తెలుగు)</option><option value="en">English</option><option value="bilingual">Bilingual (Telugu + English)</option></select></label>
-            <label>Products <small>(optional · auto-selects from Sales/Catalogue if none)</small><select id="mkt-skus" multiple size="3"></select></label>
-            <label id="mkt-category-wrap" hidden>Category<input type="text" id="mkt-category" placeholder="e.g. Bags"></label>
-            <label id="mkt-season-wrap" hidden>Seasonal theme<input type="text" id="mkt-season" placeholder="e.g. Sankranti / Summer"></label>
+
+          <div id="campaign-wizard" class="wizard-card">
+            <div id="wizard-stepper" class="wizard-stepper" role="tablist" aria-label="Campaign builder steps"></div>
+            <div id="wizard-step-body" class="wizard-step-body"></div>
+            <div class="wizard-nav">
+              <button type="button" id="wiz-prev">← Back</button>
+              <span id="wiz-step-hint" class="hint"></span>
+              <button type="button" id="wiz-next" class="primary">Next Step →</button>
+            </div>
           </div>
+
+          <details id="mkt-quick-controls" style="margin:12px 0">
+            <summary class="hint" style="cursor:pointer;font-weight:600">Direct Campaign Form Controls</summary>
+            <div class="agent-config-grid">
+              <label>Campaign type<select id="mkt-campaign-type"><option value="single_product">Single product</option><option value="multi_product">Multi-product</option><option value="category">Category-based</option><option value="seasonal">Seasonal</option></select></label>
+              <label>Language<select id="mkt-language"><option value="te">Telugu (తెలుగు)</option><option value="en">English</option><option value="bilingual">Bilingual (Telugu + English)</option></select></label>
+              <label>Products <small>(optional · auto-selects from Sales/Catalogue if none)</small><select id="mkt-skus" multiple size="3"></select></label>
+              <label id="mkt-category-wrap" hidden>Category<input type="text" id="mkt-category" placeholder="e.g. Bags"></label>
+              <label id="mkt-season-wrap" hidden>Seasonal theme<input type="text" id="mkt-season" placeholder="e.g. Sankranti / Summer"></label>
+            </div>
+          </details>
+
+          <div id="campaign-cards-list" class="campaign-cards-grid"></div>
           <div id="marketing-preview" class="marketing-preview"></div>
         </div>
 
         <div id="video-qa-panel" data-subview="video" class="agent-config-panel">
           <div class="agent-panel-head">
-            <div><h2>Video Production &amp; Quality Assurance</h2><p class="hint">Render 1080×1920 vertical H.264 + AAC videos (15s, 30s, or 60s) with ducked music &amp; voiceover, verify audio/streams with FFprobe, and enforce human review before publishing.</p></div>
+            <div><h2>Video Promotion Studio &amp; QA</h2><p class="hint">Render 1080×1920 vertical H.264 + AAC videos (15s, 30s, or 60s) with ducked music &amp; voiceover, inspect synchronized tracks, and pass FFprobe + Human Review QA.</p></div>
             <div class="agent-config-actions">
               <button type="button" id="vid-audit-reels">Audit Existing Reels</button>
               <button type="button" id="vid-run-qa">Run QA Check</button>
               <button type="button" id="vid-generate" class="primary">Generate Video</button>
             </div>
           </div>
-          <div class="agent-config-grid">
-            <label>Duration<select id="vid-duration"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option></select></label>
-            <label>Language<select id="vid-language"><option value="te">Telugu (తెలుగు)</option><option value="en">English</option><option value="bilingual">Bilingual</option></select></label>
-            <label>Voiceover mode<select id="vid-vo-mode"><option value="auto">Auto (Approved TTS / Music)</option><option value="music_only">Rights-cleared music only</option><option value="recorded">Recorded audio file path</option></select></label>
-            <label id="vid-recorded-wrap" hidden>Recorded audio path<input type="text" id="vid-recorded-path" placeholder="C:\path\to\narration.wav"></label>
-            <label>Target products <small>(optional · uses Marketing handoff if empty)</small><select id="vid-skus" multiple size="3"></select></label>
-            <label class="agent-check"><input type="checkbox" id="vid-duck" checked>Duck music during narration</label>
+
+          <div id="vid-studio-workspace" class="vid-studio-grid">
+            <aside class="studio-side-panel">
+              <h3>Media &amp; Storyboard</h3>
+              <p class="hint">Authorized product photos &amp; active scene sequence</p>
+              <div id="vid-studio-media" class="studio-media-list"></div>
+            </aside>
+
+            <div class="studio-center-panel">
+              <div class="agent-card-top" style="width:100%;margin-bottom:8px">
+                <select id="vid-studio-select" aria-label="Select video production" style="max-width:340px"></select>
+                <div id="vid-stage-badges" class="catalog-card-pills"></div>
+              </div>
+              <div class="phone-stage-frame">
+                <video id="vid-stage-player" controls playsinline preload="metadata"></video>
+                <div id="vid-stage-empty" class="empty-state" style="color:#E5E7EB;background:transparent;border-color:rgba(255,255,255,0.2)">
+                  <strong style="color:#FFFFFF">No video rendered yet</strong>
+                  <p>Configure duration and click Generate Video.</p>
+                </div>
+              </div>
+            </div>
+
+            <aside class="studio-side-panel">
+              <h3>Production Settings</h3>
+              <div class="studio-controls-stack">
+                <label>Duration<select id="vid-duration"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option></select></label>
+                <label>Language<select id="vid-language"><option value="te">Telugu (తెలుగు)</option><option value="en">English</option><option value="bilingual">Bilingual</option></select></label>
+                <label>Voiceover mode<select id="vid-vo-mode"><option value="auto">Auto (Approved TTS / Music)</option><option value="music_only">Rights-cleared music only</option><option value="recorded">Recorded audio file path</option></select></label>
+                <label id="vid-recorded-wrap" hidden>Recorded audio path<input type="text" id="vid-recorded-path" placeholder="C:\path\to\narration.wav"></label>
+                <label>Target products <small>(optional · uses Marketing handoff if empty)</small><select id="vid-skus" multiple size="4"></select></label>
+                <label class="agent-check" style="padding:2px 0"><input type="checkbox" id="vid-duck" checked>Duck music during narration</label>
+              </div>
+              <div id="vid-layout-note" class="hint" style="margin-top:8px"></div>
+            </aside>
           </div>
+
+          <div id="vid-timeline" class="vid-timeline-panel"></div>
           <div id="video-qa-preview" class="video-qa-preview"></div>
         </div>
 
@@ -596,6 +642,7 @@
 <script src="/js/ui_core.js"></script>
 <script src="/js/overview.js"></script>
 <script src="/js/agent_views.js"></script>
+<script src="/js/phase4_studio.js"></script>
 <script src="/ui.js"></script>
 <script src="/editor.js"></script>
 <script src="/agents.js"></script>
