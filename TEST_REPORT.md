@@ -28,4 +28,9 @@
 - **Python Test Suite** (`test_agents.py`, `test_marketing_agent.py`): **12/12 passed** in 25.356s (includes assertions for `/js/phase4_studio.js`, `#campaign-wizard`, and `#vid-studio-workspace`).
 - **JS Syntax Verification** (`node --check js/phase4_studio.js`, `agents.js`, `js/ui_core.js`): **3/3 passed**.
 
+## Phase 5: Approval Center & Publishing Calendar
+- **Implemented**: Approval Center summary KPI strip (`#approval-summary-strip`), live catalog price/stock & readiness verification strip per post (`pub-verify-strip`), mandatory human rejection reason enforcement, unified IST (`Asia/Kolkata`) Publishing Calendar (`#pub-cal-grid`) with Monthly/Weekly/Daily views merging Social Posts & Reel Queue jobs, platform/status filters, detail popover, global publishing stop mirror, and preserved batch Reel Queue card workflow.
+- **Python Test Suite** (`test_agents.py`, `test_social_approval.py`): **12/12 passed** in 51.726s (includes assertions for `/js/phase5_publishing.js`, `#pub-cal-grid`, `#approval-summary-strip`).
+- **JS Syntax Verification** (`node --check js/phase5_publishing.js`, `agents.js`, `ui.js`, `js/ui_core.js`): **4/4 passed**.
+
 _(Subsequent phases will append verification results below.)_

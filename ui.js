@@ -76,6 +76,7 @@ async function refresh() {
   $('#approve').disabled = !s.jobs.some(j => j.status === 'Draft');
   if (typeof window.refreshOverview === 'function') window.refreshOverview().catch(() => {});
   if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
+  if (typeof window.refreshPublishingCalendar === 'function') window.refreshPublishingCalendar();
 }
 async function post(path, data) {
   if (busy) return; busy = true; document.body.setAttribute('aria-busy', 'true'); $('#mode').disabled = true; $('#generate').disabled = true;

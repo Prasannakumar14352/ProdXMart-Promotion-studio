@@ -8,6 +8,6 @@ Branch: `feature/premium-ui-redesign`
 - [x] Phase 2: Product Catalogue & Product Editor enhancements
 - [x] Phase 3: AI Agent Command Center, Integrations Center, Execution History & Settings
 - [x] Phase 4: Campaign Management & Professional Video Promotion Studio
-- [ ] Phase 5: Approval Center & Publishing Calendar (In Progress)
-- [ ] Phase 6: Sales Analytics & Expenses/Profit Management
+- [x] Phase 5: Approval Center & Publishing Calendar
+- [ ] Phase 6: Sales Analytics & Expenses/Profit Management (In Progress)
 - [ ] Phase 7: End-to-end integration, polish & final regression

@@ -136,10 +136,15 @@
     if (meta.section === 'overview' && typeof window.refreshOverview === 'function') {
       window.refreshOverview().catch(() => {});
     }
+    if (meta.section === 'queue' && typeof window.refreshPublishingCalendar === 'function') {
+      if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
+      window.refreshPublishingCalendar();
+    }
     if (meta.section === 'agents') {
       if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
       if (typeof window.refreshAgentViews === 'function') window.refreshAgentViews(targetRoute).catch(() => {});
       if (typeof window.refreshPhase4Studio === 'function') window.refreshPhase4Studio(targetRoute);
+      if (typeof window.refreshApprovalSummary === 'function') window.refreshApprovalSummary();
     }
   }
 

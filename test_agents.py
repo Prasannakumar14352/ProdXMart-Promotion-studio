@@ -374,12 +374,14 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         self.assertIn('/agents.js', html_body)
         self.assertIn('campaign-wizard', html_body)
         self.assertIn('vid-studio-workspace', html_body)
+        self.assertIn('pub-cal-grid', html_body)
+        self.assertIn('approval-summary-strip', html_body)
 
         code, agents_js = invoke_handler('GET', '/agents.js', orchestrator=orch)
         self.assertEqual(code, 200)
         self.assertIn('refreshAgents', agents_js)
 
-        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/js/agent_views.js', '/js/phase4_studio.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
+        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/js/agent_views.js', '/js/phase4_studio.js', '/js/phase5_publishing.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
             acode, _ = invoke_handler('GET', asset_path, orchestrator=orch, decode=False)
             self.assertEqual(acode, 200, f'Failed to serve {asset_path}')
 

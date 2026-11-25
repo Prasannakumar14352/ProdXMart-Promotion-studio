@@ -297,8 +297,44 @@
       </section>
 
       <section id="queue" hidden>
-        <div class="actions"><label>First post · India time <input type="datetime-local" id="start"></label><button id="approve">Approve all drafts</button><a id="bio" hidden>Export shop links</a></div>
-        <div id="cards" class="cards"></div>
+        <div class="card" style="padding:16px 18px;margin-bottom:16px">
+          <div class="agent-panel-head">
+            <div>
+              <h2>Publishing Calendar (IST)</h2>
+              <p class="hint">Unified Monthly, Weekly, and Daily India Standard Time (Asia/Kolkata) schedule across Instagram Reels, Facebook Reels, YouTube Shorts, and Reel Queue drafts.</p>
+            </div>
+            <div class="agent-config-actions">
+              <button type="button" id="cal-global-stop-mirror">Stop All Publishing</button>
+              <button type="button" onclick="window.StudioUI?.navigate('approvals')" class="primary">Open Approval Center</button>
+            </div>
+          </div>
+          <div id="cal-stop-banner" class="agent-banner is-stopped" hidden style="margin-top:12px"></div>
+          <div class="cat-toolbar" style="margin-top:12px">
+            <div class="cat-view-switch" role="group" aria-label="Calendar view mode">
+              <button type="button" class="cal-mode-btn active" data-calmode="month">Month</button>
+              <button type="button" class="cal-mode-btn" data-calmode="week">Week</button>
+              <button type="button" class="cal-mode-btn" data-calmode="day">Day</button>
+            </div>
+            <div class="agent-table-actions">
+              <button type="button" id="cal-prev">← Prev</button>
+              <button type="button" id="cal-today">Today</button>
+              <button type="button" id="cal-next">Next →</button>
+              <strong id="cal-period-label" style="margin-left:6px"></strong>
+            </div>
+            <label><span class="sr">Platform filter</span><select id="cal-plat-filter"><option value="">All platforms</option><option value="instagram_reels">Instagram Reels</option><option value="facebook_reels">Facebook Reels</option><option value="youtube_shorts">YouTube Shorts</option><option value="reel_queue">Reel Queue</option></select></label>
+            <label><span class="sr">Status filter</span><select id="cal-status-filter"><option value="">All statuses</option><option value="Draft">Draft</option><option value="Awaiting Approval">Awaiting Approval</option><option value="Approved">Approved</option><option value="Scheduled">Scheduled</option><option value="Published">Published</option><option value="Failed">Failed</option></select></label>
+          </div>
+          <div id="pub-cal-grid" class="pub-cal-container"></div>
+          <div id="pub-cal-detail" class="agent-run-detail" hidden></div>
+        </div>
+
+        <div class="card" style="padding:16px 18px">
+          <div class="agent-panel-head" style="margin-bottom:12px">
+            <div><h3>Weekly Reel Drafts &amp; Export Queue</h3><p class="hint">Batch Reel video queue items ready for scheduling or link export.</p></div>
+            <div class="actions"><label>First post · India time <input type="datetime-local" id="start"></label><button id="approve">Approve all drafts</button><a id="bio" hidden>Export shop links</a></div>
+          </div>
+          <div id="cards" class="cards"></div>
+        </div>
       </section>
 
       <section id="report" hidden>
@@ -437,6 +473,7 @@
             </div>
           </div>
           <div id="social-stop-banner" class="agent-banner" hidden></div>
+          <div id="approval-summary-strip" class="catalog-stats" style="margin-bottom:12px"></div>
           <div class="agent-config-grid">
             <label>Video production<select id="social-production-select"><option value="">Latest QA-passed video</option></select></label>
             <div>
@@ -643,6 +680,7 @@
 <script src="/js/overview.js"></script>
 <script src="/js/agent_views.js"></script>
 <script src="/js/phase4_studio.js"></script>
+<script src="/js/phase5_publishing.js"></script>
 <script src="/ui.js"></script>
 <script src="/editor.js"></script>
 <script src="/agents.js"></script>

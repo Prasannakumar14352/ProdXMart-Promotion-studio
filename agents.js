@@ -490,6 +490,8 @@
     if (typeof window.renderAgentPipeline === 'function') window.renderAgentPipeline(data);
     if (typeof window.applyHistoryExtraFilters === 'function') window.applyHistoryExtraFilters();
     if (typeof window.refreshPhase4Studio === 'function') window.refreshPhase4Studio();
+    if (typeof window.refreshApprovalSummary === 'function') window.refreshApprovalSummary();
+    if (typeof window.refreshPublishingCalendar === 'function') window.refreshPublishingCalendar();
     schedulePoll(data.active_count || 0);
     if (hadPrevious && newlyDone && typeof refresh === 'function') {
       refresh().catch(() => {});
@@ -1096,6 +1098,17 @@
         card.append(pubP);
       }
 
+      const prodMatch = (typeof state !== 'undefined' && state?.products)
+        ? state.products.find(x => x.sku === post.sku)
+        : null;
+      const vStrip = element('div', '');
+      vStrip.className = 'pub-verify-strip';
+      vStrip.append(
+        element('span', prodMatch ? `Live Catalog: ₹${prodMatch.price} · Stock ${prodMatch.stock}` : `SKU ${post.sku} snapshot`),
+        element('span', prodMatch?.issues?.length ? `Blocked: ${prodMatch.issues.join(', ')}` : 'Eligible for promotion')
+      );
+      card.append(vStrip);
+
       const fields = element('div', '');
       fields.className = 'social-edit-grid';
       const titleIn = document.createElement('input'); titleIn.type = 'text'; titleIn.value = post.title || '';
@@ -1167,8 +1180,15 @@
       rejectBtn.type = 'button';
       rejectBtn.disabled = ro;
       rejectBtn.onclick = async () => {
+        const reason = window.prompt('Enter mandatory rejection reason for operator audit log:');
+        if (reason === null) return;
+        const cleaned = reason.trim();
+        if (!cleaned) {
+          notice('Rejection reason is required before rejecting a post.', true);
+          return;
+        }
         try {
-          const res = await agentPost('/agents/social/reject', { post_id: post.id, reason: 'Rejected in Approval Center' });
+          const res = await agentPost('/agents/social/reject', { post_id: post.id, reason: cleaned });
           notice(res.message);
           await refreshAgents();
         } catch (err) {
