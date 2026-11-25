@@ -297,9 +297,9 @@ def save(data):
         old_photos = [] if current is None else [p.strip() for p in current[col('photos')].split('|') if p.strip()]
         if any(name not in old_photos for name in kept):
             raise ValueError('Existing photos changed. Reopen the product.')
-        names=list(kept)
         media=engine.ROOT/'media'/'uploaded'
         media.mkdir(parents=True,exist_ok=True)
+        uploaded_names=[]
         for body in photos:
             name=hashlib.sha256(body).hexdigest()+'.jpg'
             dest=media/name
@@ -307,8 +307,32 @@ def save(data):
                 with tempfile.NamedTemporaryFile(dir=media,delete=False) as tmp:
                     tmp.write(body)
                 os.replace(tmp.name,dest)
-            if 'uploaded/'+name not in names:
-                names.append('uploaded/'+name)
+            uploaded_names.append('uploaded/'+name)
+        photo_order=data.get('photo_order')
+        if isinstance(photo_order,list) and photo_order:
+            names=[]
+            for token in photo_order:
+                if isinstance(token,str) and token.startswith('keep:'):
+                    ref=token[5:]
+                    if ref not in old_photos:
+                        raise ValueError('Existing photos changed. Reopen the product.')
+                    if ref not in names:
+                        names.append(ref)
+                elif isinstance(token,str) and token.startswith('new:'):
+                    idx=int(token[4:])
+                    if 0<=idx<len(uploaded_names):
+                        ref=uploaded_names[idx]
+                        if ref not in names:
+                            names.append(ref)
+            for ref in list(kept)+uploaded_names:
+                if ref not in names:
+                    names.append(ref)
+            names=names[:MAX_PHOTOS]
+        else:
+            names=list(kept)
+            for ref in uploaded_names:
+                if ref not in names:
+                    names.append(ref)
         values['photos']='|'.join(names)
         stamp='_studio_verified_at'
         if stamp not in fields:

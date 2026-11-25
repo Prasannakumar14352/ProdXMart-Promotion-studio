@@ -107,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
                 mode=parse_qs(u.query).get('mode',['demo'])[0]
                 with closing(db()) as c:
                     jobs=[dict(j) for j in c.execute('SELECT id,sku,name,caption,link,status,due,note,published_id,container FROM jobs WHERE mode=? ORDER BY created DESC',(mode,))]
-                products=[dict(sku=p['sku'],name=p['name'],product_url=p['product_url'],stock=p['stock'],category=p['category'],price=float(p['price']),photo_count=len(p['files']),has_photo=bool(p['files'] and p['files'][0].is_file()),margin=float(p['margin']),issues=p['issues']) for p in catalogue(mode).values()]
+                products=[dict(sku=p['sku'],name=p['name'],product_url=p['product_url'],stock=p['stock'],category=p['category'],price=float(p['price']),cost=float(p['cost']),fees=float(p['fees']),media_ok=(p.get('media_ok','').lower()=='yes'),photo_count=len(p['files']),has_photo=bool(p['files'] and p['files'][0].is_file()),margin=float(p['margin']),issues=p['issues']) for p in catalogue(mode).values()]
                 start=(now()+timedelta(days=1)).replace(hour=19,minute=0,second=0,microsecond=0)
                 traffic={}
                 for row in records(directory(mode)/'traffic.csv',['campaign','sessions']):

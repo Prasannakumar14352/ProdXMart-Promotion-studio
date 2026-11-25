@@ -3,68 +3,457 @@ const dialog = $('#editor');
 let editing = null;
 let selection = [];
 let saving = false;
+let catView = localStorage.getItem('prodx_cat_view') === 'grid' ? 'grid' : 'table';
+let catPage = 1;
+let catPageSize = 12;
+let catKpiPreset = '';
+const catSelected = new Set();
+
+function productCostValue(p) {
+  return Number.isFinite(p.cost) ? p.cost : Math.max(0, (p.price || 0) - (p.margin || 0) - (p.fees || 0));
+}
+
+function stockBadgeMeta(stock) {
+  const s = Number(stock || 0);
+  if (s <= 0) return { cls: 'badge error', label: 'Out of stock (0)' };
+  if (s <= 5) return { cls: 'badge warning', label: `Low (${s})` };
+  return { cls: 'badge success', label: `${s} in stock` };
+}
+
+function renderCatKpis(allProducts) {
+  const host = $('#cat-kpis');
+  if (!host) return;
+  const total = allProducts.length;
+  const ready = allProducts.filter(p => p.issues.length === 0).length;
+  const out = allProducts.filter(p => Number(p.stock || 0) <= 0).length;
+  const missingPhotos = allProducts.filter(p => !p.has_photo || Number(p.photo_count || 0) === 0).length;
+  const attention = allProducts.filter(p => p.issues.length > 0).length;
+  const cards = [
+    { key: '', label: 'Total products', value: total, sub: 'In active workspace' },
+    { key: 'ready', label: 'Promotion-ready', value: ready, sub: total ? Math.round((ready / total) * 100) + '% eligible' : '0% eligible' },
+    { key: 'out', label: 'Out of stock', value: out, sub: 'Zero available units' },
+    { key: 'no_photo', label: 'Missing images', value: missingPhotos, sub: 'Needs gallery photos' },
+    { key: 'attention', label: 'Needs attention', value: attention, sub: 'Blocked from reels' },
+  ];
+  host.replaceChildren();
+  for (const c of cards) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cat-kpi-btn' + (catKpiPreset === c.key ? ' active' : '');
+    const sm = element('small', c.label);
+    const val = element('b', String(c.value));
+    const sub = element('span', c.sub);
+    b.append(sm, val, sub);
+    b.onclick = () => {
+      catKpiPreset = catKpiPreset === c.key ? '' : c.key;
+      if (catKpiPreset === 'ready') $('#filter').value = 'ready';
+      else if (catKpiPreset === 'attention') $('#filter').value = 'hold';
+      else $('#filter').value = '';
+      if (catKpiPreset === 'out') $('#cat-stock').value = 'out';
+      else if ($('#cat-stock')) $('#cat-stock').value = '';
+      catPage = 1;
+      renderProducts();
+    };
+    host.append(b);
+  }
+}
+
+function syncCategoryFilter(allProducts) {
+  const sel = $('#cat-category');
+  if (!sel) return;
+  const prev = sel.value;
+  const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  sel.replaceChildren(new Option('All categories', ''));
+  for (const c of cats) sel.add(new Option(c, c));
+  if (cats.includes(prev)) sel.value = prev;
+}
+
+function updateBulkBar(visibleSkus) {
+  const bar = $('#cat-bulk-bar');
+  if (!bar) return;
+  const validSkus = new Set((state?.products || []).map(p => p.sku));
+  for (const s of [...catSelected]) if (!validSkus.has(s)) catSelected.delete(s);
+  bar.hidden = catSelected.size === 0;
+  if ($('#cat-bulk-count')) $('#cat-bulk-count').textContent = catSelected.size + ' selected';
+  if ($('#cat-bulk-select-page')) {
+    $('#cat-bulk-select-page').onclick = () => {
+      visibleSkus.forEach(s => catSelected.add(s));
+      renderProducts();
+    };
+  }
+}
+
+function promoteProductSkus(skus) {
+  const clean = (skus || []).filter(Boolean);
+  if (!clean.length) return;
+  window.__preselectCampaignSkus = clean;
+  const sel = $('#mkt-skus');
+  if (sel) {
+    Array.from(sel.options).forEach(opt => {
+      opt.selected = clean.includes(opt.value);
+    });
+    if ($('#mkt-campaign-type')) {
+      $('#mkt-campaign-type').value = clean.length > 1 ? 'multi_product' : 'single_product';
+    }
+  }
+  if (window.StudioUI?.navigate) window.StudioUI.navigate('campaigns');
+  else if (typeof openTab === 'function') openTab('agents');
+  notice(clean.length + ' product(s) pre-selected for Campaign creation.');
+}
 
 function renderProducts() {
   if (!state) return;
-  const query = $('#search').value.toLowerCase().trim();
-  const filter = $('#filter').value;
-  const products = state.products.filter(p => {
+  const allProducts = state.products || [];
+  renderCatKpis(allProducts);
+  syncCategoryFilter(allProducts);
+
+  const query = ($('#search')?.value || '').toLowerCase().trim();
+  const filter = $('#filter')?.value || '';
+  const category = $('#cat-category')?.value || '';
+  const stockFilter = $('#cat-stock')?.value || '';
+  const marginFilter = $('#cat-margin')?.value || '';
+  const sortBy = $('#cat-sort')?.value || 'name_asc';
+
+  let products = allProducts.filter(p => {
     const ready = p.issues.length === 0;
-    const matches = [p.name,p.sku,p.category].some(v => v.toLowerCase().includes(query));
-    return matches && (!filter || (filter === 'ready') === ready);
+    const matches = !query || [p.name, p.sku, p.category].some(v => (v || '').toLowerCase().includes(query));
+    if (!matches) return false;
+    if (filter && (filter === 'ready') !== ready) return false;
+    if (category && p.category !== category) return false;
+    const s = Number(p.stock || 0);
+    if (stockFilter === 'in' && s <= 0) return false;
+    if (stockFilter === 'low' && (s < 1 || s > 5)) return false;
+    if (stockFilter === 'out' && s > 0) return false;
+    if (marginFilter === 'positive' && Number(p.margin || 0) <= 0) return false;
+    if (marginFilter === 'nonpositive' && Number(p.margin || 0) > 0) return false;
+    if (catKpiPreset === 'no_photo' && (p.has_photo && Number(p.photo_count || 0) > 0)) return false;
+    return true;
   });
-  $('#count').textContent = products.length + (products.length === 1 ? ' product' : ' products');
+
+  products = [...products].sort((a, b) => {
+    switch (sortBy) {
+      case 'margin_desc': return (b.margin || 0) - (a.margin || 0);
+      case 'margin_asc': return (a.margin || 0) - (b.margin || 0);
+      case 'price_desc': return (b.price || 0) - (a.price || 0);
+      case 'price_asc': return (a.price || 0) - (b.price || 0);
+      case 'stock_asc': return (a.stock || 0) - (b.stock || 0);
+      default: return String(a.name || '').localeCompare(String(b.name || ''));
+    }
+  });
+
+  const totalMatches = products.length;
+  const totalPages = Math.max(1, Math.ceil(totalMatches / catPageSize));
+  if (catPage > totalPages) catPage = totalPages;
+  const startIdx = (catPage - 1) * catPageSize;
+  const paged = products.slice(startIdx, startIdx + catPageSize);
+
+  $('#count').textContent = totalMatches + (totalMatches === 1 ? ' product' : ' products');
+  $('#cat-view-table')?.classList.toggle('active', catView === 'table');
+  $('#cat-view-grid')?.classList.toggle('active', catView === 'grid');
+  $('#cat-view-table')?.setAttribute('aria-pressed', catView === 'table' ? 'true' : 'false');
+  $('#cat-view-grid')?.setAttribute('aria-pressed', catView === 'grid' ? 'true' : 'false');
+
+  updateBulkBar(paged.map(p => p.sku));
+
+  const pagEl = $('#cat-pagination');
   if (!products.length) {
-    const empty = element('div',''); empty.className='empty';
-    const fresh = state.products.length === 0;
-    empty.append(element('h3',fresh?'Add your first product':'No matching products'),
-      element('p',fresh?'Paste a ProdXMart link and add the details you want to use in a Reel.':'Try another search or change the readiness filter.'));
-    if (fresh && mode()==='store') {
-      const b=element('button','Add product'); b.onclick=()=>openEditor();empty.append(b);
+    if (pagEl) pagEl.hidden = true;
+    const empty = element('div', ''); empty.className = 'empty';
+    const fresh = allProducts.length === 0;
+    empty.append(
+      element('h3', fresh ? 'Add your first product' : 'No matching products'),
+      element('p', fresh ? 'Paste a ProdXMart link and add the details you want to use in a Reel.' : 'Try adjusting your search or resetting the catalogue filters.')
+    );
+    if (fresh && mode() === 'store') {
+      const b = element('button', 'Add product'); b.className = 'primary'; b.onclick = () => openEditor(); empty.append(b);
     }
     $('#products').replaceChildren(empty);
     return;
   }
-  const t=document.createElement('table');
-  const h=t.createTHead().insertRow(), body=t.createTBody();
-  ['Product','Price','Stock','Unit margin','Readiness',''].forEach(n=>h.append(element('th',n)));
-  for (const p of products) {
-    const tr=body.insertRow(), idCell=tr.insertCell(), id=element('div','');id.className='product-id';
-    if(p.has_photo){
-      const image=new Image(); image.alt=''; image.loading='lazy';
-      image.src='/photo?'+new URLSearchParams({mode:mode(),sku:p.sku});
-      id.append(image);
-    }else{const blank=element('span',p.name.slice(0,1));blank.className='thumb-fallback';id.append(blank);}
-    const name=element('div','');name.append(element('strong',p.name),element('small',p.sku+' · '+p.category+' · '+p.photo_count+' photo'+(p.photo_count===1?'':'s')));id.append(name);idCell.append(id);
-    for (const [label,value] of [['Price',money(p.price)],['Stock',p.stock],['Unit margin',money(p.margin)]]){
-      const cell=tr.insertCell();cell.dataset.label=label;cell.textContent=value;
-    }
-    const readiness=tr.insertCell(), tag=element('span',p.issues.length?'Needs attention':'Ready to promote');
-    tag.className='tag'+(p.issues.length?' hold':'');readiness.append(tag);
-    if(p.issues.length){const note=element('small',p.issues.join(' · '));note.className='why';readiness.append(note);}
-    const actions=tr.insertCell();
-    if(mode()==='store'){
-      const b=element('button','Edit');b.setAttribute('aria-label','Edit '+p.name);b.onclick=()=>openEditor(p.sku);actions.append(b);
-    }
-  }
-  $('#products').replaceChildren(t);
-}
-$('#search').oninput=renderProducts;$('#filter').onchange=renderProducts;
 
-function margin(){
-  const val=k=>form.elements[k].value;
-  $('#margin').textContent=val('price')&&val('cost')&&val('fees')?
-    'Estimated margin per unit  '+money(Number(val('price'))-Number(val('cost'))-Number(val('fees'))):'';
+  if (catView === 'grid') {
+    const grid = document.createElement('div');
+    grid.className = 'cat-grid';
+    for (const p of paged) {
+      const card = document.createElement('article');
+      card.className = 'cat-card';
+
+      const media = document.createElement('div');
+      media.className = 'cat-card-media';
+      if (p.has_photo) {
+        const img = new Image(); img.alt = p.name; img.loading = 'lazy';
+        img.src = '/photo?' + new URLSearchParams({ mode: mode(), sku: p.sku });
+        img.style.cursor = 'pointer';
+        img.onclick = () => openLightbox(p.name, img.src);
+        media.append(img);
+      } else {
+        const blank = element('span', p.name.slice(0, 1));
+        blank.className = 'thumb-fallback';
+        blank.style.width = '64px'; blank.style.height = '64px';
+        media.append(blank);
+      }
+      const chkWrap = document.createElement('label');
+      chkWrap.className = 'cat-card-check';
+      const chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.checked = catSelected.has(p.sku);
+      chk.setAttribute('aria-label', 'Select ' + p.name);
+      chk.onchange = () => {
+        if (chk.checked) catSelected.add(p.sku); else catSelected.delete(p.sku);
+        updateBulkBar(paged.map(x => x.sku));
+      };
+      chkWrap.append(chk);
+      media.append(chkWrap);
+
+      const body = document.createElement('div');
+      body.className = 'cat-card-body';
+      const topRow = document.createElement('div');
+      topRow.className = 'meta';
+      const catBadge = element('span', p.category || 'General'); catBadge.className = 'badge';
+      const readyTag = element('span', p.issues.length ? 'Needs attention' : 'Ready to promote');
+      readyTag.className = 'tag' + (p.issues.length ? ' hold' : '');
+      topRow.append(catBadge, readyTag);
+
+      const title = element('strong', p.name);
+      const sub = element('small', `${p.sku} · ${p.photo_count} photo${p.photo_count === 1 ? '' : 's'}`);
+      sub.className = 'hint';
+
+      const metrics = document.createElement('div');
+      metrics.className = 'cat-card-metrics';
+      const costVal = productCostValue(p);
+      for (const [lbl, val, cls] of [
+        ['Selling', money(p.price), ''],
+        ['Cost', money(costVal), ''],
+        ['Margin', money(p.margin), p.margin <= 0 ? 'margin-negative' : 'margin-positive'],
+      ]) {
+        const cell = document.createElement('div');
+        cell.append(element('small', lbl));
+        const b = element('b', val);
+        if (cls) b.className = cls;
+        cell.append(b);
+        metrics.append(cell);
+      }
+
+      const st = stockBadgeMeta(p.stock);
+      const stRow = document.createElement('div');
+      stRow.className = 'meta';
+      const stPill = element('span', st.label); stPill.className = st.cls;
+      stRow.append(stPill);
+      if (p.issues.length) {
+        const iss = element('small', p.issues.join(' · '));
+        iss.className = 'hint';
+        stRow.append(iss);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'cardactions';
+      if (mode() === 'store') {
+        const eb = element('button', 'Edit'); eb.setAttribute('aria-label', 'Edit ' + p.name); eb.onclick = () => openEditor(p.sku);
+        actions.append(eb);
+      }
+      if (!p.issues.length) {
+        const pb = element('button', 'Promote'); pb.className = 'primary'; pb.onclick = () => promoteProductSkus([p.sku]);
+        actions.append(pb);
+      }
+      if (p.product_url) {
+        const lnk = element('a', 'View URL'); lnk.href = p.product_url; lnk.target = '_blank'; lnk.rel = 'noopener noreferrer';
+        actions.append(lnk);
+      }
+      body.append(topRow, title, sub, metrics, stRow, actions);
+      card.append(media, body);
+      grid.append(card);
+    }
+    $('#products').replaceChildren(grid);
+  } else {
+    const t = document.createElement('table');
+    t.className = 'data-table';
+    const h = t.createTHead().insertRow(), body = t.createTBody();
+    const selTh = document.createElement('th');
+    selTh.style.width = '32px';
+    const selAll = document.createElement('input');
+    selAll.type = 'checkbox';
+    selAll.setAttribute('aria-label', 'Select all on page');
+    selAll.checked = paged.length > 0 && paged.every(p => catSelected.has(p.sku));
+    selAll.onchange = () => {
+      paged.forEach(p => { if (selAll.checked) catSelected.add(p.sku); else catSelected.delete(p.sku); });
+      renderProducts();
+    };
+    selTh.append(selAll);
+    h.append(selTh);
+    ['Product', 'Selling price', 'Cost', 'Unit margin', 'Stock', 'Readiness', 'Actions'].forEach(n => h.append(element('th', n)));
+    for (const p of paged) {
+      const tr = body.insertRow();
+      const cSel = tr.insertCell();
+      const chk = document.createElement('input');
+      chk.type = 'checkbox'; chk.checked = catSelected.has(p.sku);
+      chk.setAttribute('aria-label', 'Select ' + p.name);
+      chk.onchange = () => {
+        if (chk.checked) catSelected.add(p.sku); else catSelected.delete(p.sku);
+        updateBulkBar(paged.map(x => x.sku));
+      };
+      cSel.append(chk);
+
+      const idCell = tr.insertCell(), id = element('div', ''); id.className = 'product-id';
+      if (p.has_photo) {
+        const image = new Image(); image.alt = ''; image.loading = 'lazy';
+        image.src = '/photo?' + new URLSearchParams({ mode: mode(), sku: p.sku });
+        image.style.cursor = 'pointer';
+        image.onclick = () => openLightbox(p.name, image.src);
+        id.append(image);
+      } else {
+        const blank = element('span', p.name.slice(0, 1)); blank.className = 'thumb-fallback'; id.append(blank);
+      }
+      const name = element('div', '');
+      name.append(element('strong', p.name), element('small', p.sku + ' · ' + p.category + ' · ' + p.photo_count + ' photo' + (p.photo_count === 1 ? '' : 's')));
+      id.append(name); idCell.append(id);
+
+      const priceCell = tr.insertCell(); priceCell.textContent = money(p.price);
+      const costCell = tr.insertCell(); costCell.textContent = money(productCostValue(p));
+      const marginCell = tr.insertCell();
+      const mSpan = element('span', money(p.margin));
+      mSpan.className = p.margin <= 0 ? 'margin-negative' : 'margin-positive';
+      marginCell.append(mSpan);
+
+      const stockCell = tr.insertCell();
+      const st = stockBadgeMeta(p.stock);
+      const stPill = element('span', st.label); stPill.className = st.cls;
+      stockCell.append(stPill);
+
+      const readiness = tr.insertCell(), tag = element('span', p.issues.length ? 'Needs attention' : 'Ready to promote');
+      tag.className = 'tag' + (p.issues.length ? ' hold' : ''); readiness.append(tag);
+      if (p.issues.length) { const note = element('small', p.issues.join(' · ')); note.className = 'why'; readiness.append(note); }
+
+      const actions = tr.insertCell();
+      const actWrap = document.createElement('div');
+      actWrap.className = 'agent-table-actions';
+      if (mode() === 'store') {
+        const b = element('button', 'Edit'); b.setAttribute('aria-label', 'Edit ' + p.name); b.onclick = () => openEditor(p.sku);
+        actWrap.append(b);
+      }
+      if (!p.issues.length) {
+        const pb = element('button', 'Promote'); pb.onclick = () => promoteProductSkus([p.sku]);
+        actWrap.append(pb);
+      }
+      if (p.product_url) {
+        const lnk = element('a', 'Store'); lnk.href = p.product_url; lnk.target = '_blank'; lnk.rel = 'noopener noreferrer';
+        actWrap.append(lnk);
+      }
+      actions.append(actWrap);
+    }
+    $('#products').replaceChildren(t);
+  }
+
+  if (pagEl) {
+    pagEl.hidden = false;
+    pagEl.replaceChildren();
+    const info = element('span', `Showing ${startIdx + 1}–${Math.min(startIdx + paged.length, totalMatches)} of ${totalMatches} products`);
+    info.className = 'hint';
+
+    const ctrls = document.createElement('div');
+    ctrls.className = 'agent-table-actions';
+    const sizeSel = document.createElement('select');
+    sizeSel.setAttribute('aria-label', 'Rows per page');
+    for (const sz of [12, 24, 50]) sizeSel.add(new Option(sz + ' / page', String(sz)));
+    sizeSel.value = String(catPageSize);
+    sizeSel.onchange = () => { catPageSize = Number(sizeSel.value); catPage = 1; renderProducts(); };
+
+    const prev = element('button', '← Prev'); prev.type = 'button'; prev.disabled = catPage <= 1;
+    prev.onclick = () => { if (catPage > 1) { catPage--; renderProducts(); } };
+    const pageLbl = element('span', `Page ${catPage} of ${totalPages}`); pageLbl.className = 'badge';
+    const next = element('button', 'Next →'); next.type = 'button'; next.disabled = catPage >= totalPages;
+    next.onclick = () => { if (catPage < totalPages) { catPage++; renderProducts(); } };
+    ctrls.append(sizeSel, prev, pageLbl, next);
+    pagEl.append(info, ctrls);
+  }
 }
-['price','cost','fees'].forEach(k=>form.elements[k].oninput=margin);
-function showPhotos(){
-  const box=$('#photo-list');box.replaceChildren();
-  selection.forEach((item,i)=>{
-    const tile=element('div','');tile.className='photo';
-    const img=new Image();img.src=item.preview;img.alt='Product photo '+(i+1);
-    const b=element('button','Remove');b.type='button';b.setAttribute('aria-label','Remove photo '+(i+1));
-    b.onclick=()=>{if(item.file)URL.revokeObjectURL(item.preview);selection.splice(i,1);showPhotos();};
-    tile.append(img,b);box.append(tile);
+
+['#search', '#filter', '#cat-category', '#cat-stock', '#cat-margin', '#cat-sort'].forEach(sel => {
+  const el = $(sel);
+  if (!el) return;
+  const handler = () => { catPage = 1; renderProducts(); };
+  if (sel === '#search') el.oninput = handler;
+  else el.onchange = handler;
+});
+if ($('#cat-clear')) {
+  $('#cat-clear').onclick = () => {
+    catKpiPreset = '';
+    catPage = 1;
+    $('#search').value = '';
+    $('#filter').value = '';
+    if ($('#cat-category')) $('#cat-category').value = '';
+    if ($('#cat-stock')) $('#cat-stock').value = '';
+    if ($('#cat-margin')) $('#cat-margin').value = '';
+    if ($('#cat-sort')) $('#cat-sort').value = 'name_asc';
+    renderProducts();
+  };
+}
+if ($('#cat-view-table')) {
+  $('#cat-view-table').onclick = () => { catView = 'table'; localStorage.setItem('prodx_cat_view', 'table'); renderProducts(); };
+}
+if ($('#cat-view-grid')) {
+  $('#cat-view-grid').onclick = () => { catView = 'grid'; localStorage.setItem('prodx_cat_view', 'grid'); renderProducts(); };
+}
+if ($('#cat-bulk-clear')) {
+  $('#cat-bulk-clear').onclick = () => { catSelected.clear(); renderProducts(); };
+}
+if ($('#cat-bulk-promote')) {
+  $('#cat-bulk-promote').onclick = () => promoteProductSkus([...catSelected]);
+}
+
+function openLightbox(title, src) {
+  const lb = $('#photo-lightbox');
+  if (!lb) return;
+  $('#photo-lightbox-title').textContent = title || 'Photo preview';
+  $('#photo-lightbox-img').src = src;
+  lb.showModal();
+}
+if ($('#photo-lightbox-close')) $('#photo-lightbox-close').onclick = () => $('#photo-lightbox')?.close();
+
+function margin() {
+  const val = k => form.elements[k].value;
+  const mEl = $('#margin');
+  if (!val('price') || !val('cost') || !val('fees')) {
+    mEl.textContent = '';
+    mEl.className = 'margin';
+    return;
+  }
+  const price = Number(val('price'));
+  const uMargin = price - Number(val('cost')) - Number(val('fees'));
+  const pct = price > 0 ? ((uMargin / price) * 100).toFixed(1) : '0.0';
+  mEl.textContent = `Estimated unit margin: ${money(uMargin)} (${pct}% of selling price)`;
+  mEl.className = 'margin' + (uMargin <= 0 ? ' is-negative' : '');
+}
+['price', 'cost', 'fees'].forEach(k => form.elements[k].oninput = margin);
+function showPhotos() {
+  const box = $('#photo-list'); box.replaceChildren();
+  selection.forEach((item, i) => {
+    const tile = element('div', ''); tile.className = 'photo' + (i === 0 ? ' is-cover' : '');
+    if (i === 0) {
+      const badge = element('span', 'Cover #1'); badge.className = 'photo-cover-badge';
+      tile.append(badge);
+    }
+    const img = new Image(); img.src = item.preview; img.alt = 'Product photo ' + (i + 1);
+    img.onclick = () => openLightbox('Photo #' + (i + 1), item.preview);
+
+    const actions = document.createElement('div');
+    actions.className = 'photo-actions';
+    if (i > 0) {
+      const cov = element('button', 'Cover'); cov.type = 'button'; cov.title = 'Set as cover photo';
+      cov.onclick = () => { const [picked] = selection.splice(i, 1); selection.unshift(picked); showPhotos(); };
+      actions.append(cov);
+
+      const left = element('button', '←'); left.type = 'button'; left.title = 'Move left';
+      left.onclick = () => { [selection[i - 1], selection[i]] = [selection[i], selection[i - 1]]; showPhotos(); };
+      actions.append(left);
+    }
+    if (i < selection.length - 1) {
+      const right = element('button', '→'); right.type = 'button'; right.title = 'Move right';
+      right.onclick = () => { [selection[i + 1], selection[i]] = [selection[i], selection[i + 1]]; showPhotos(); };
+      actions.append(right);
+    }
+    const b = element('button', 'Remove'); b.type = 'button'; b.setAttribute('aria-label', 'Remove photo ' + (i + 1));
+    b.onclick = () => { if (item.file) URL.revokeObjectURL(item.preview); selection.splice(i, 1); showPhotos(); };
+    actions.append(b);
+    tile.append(img, actions); box.append(tile);
   });
 }
 async function openEditor(sku, imported){
@@ -238,9 +627,12 @@ form.onsubmit=async e=>{
     const d=Object.fromEntries(new FormData(form));d.mode='store';d.version=editing?.version||'';d.media_ok=form.elements.media_ok.checked;
     d.keep=selection.filter(x=>!x.file).map(x=>x.name);
     d.new=[...await Promise.all(selection.filter(x=>x.file).map(x=>encoded(x.file))),...links.map(url=>({url}))];
+    let nextNewIdx = 0;
+    d.photo_order=selection.map(x=>x.file ? 'new:' + (nextNewIdx++) : 'keep:' + x.name);
+    for (let li = 0; li < links.length; li++) d.photo_order.push('new:' + (nextNewIdx++));
     const r=await fetch('/product',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
     const j=await r.json();if(!r.ok)throw Error(j.error||'Could not save product.');
-    dialog.close();importedCard=null;$('#factori-review').hidden=true;$('#search').value='';$('#filter').value='';openTab('catalogue');
+    dialog.close();importedCard=null;$('#factori-review').hidden=true;$('#search').value='';$('#filter').value='';if($('#cat-category'))$('#cat-category').value='';if($('#cat-stock'))$('#cat-stock').value='';if($('#cat-margin'))$('#cat-margin').value='';catKpiPreset='';openTab('catalogue');
     await refresh();notice(j.message);
   }catch(err){if(dialog.open)$('#form-error').textContent=err.message;else notice(err.message,true);}
   finally{saving=false;$('#save').disabled=false;$('#save').textContent='Save product';}

@@ -245,10 +245,55 @@
 
       <!-- EXISTING FUNCTIONAL SECTIONS (Preserved & progressively upgraded in Phases 2-6) -->
       <section id="catalogue" hidden>
-        <div class="filterbar"><label><span class="sr">Search products</span><input type="search" id="search" placeholder="Search by name, SKU or category"></label><label><span class="sr">Promotion readiness</span><select id="filter"><option value="">All products</option><option value="ready">Ready to promote</option><option value="hold">Needs attention</option></select></label><small id="count"></small></div>
-        <details id="factori-help"><summary>Import prices from Factori</summary><p class="hint">In Chrome, open chrome://extensions, enable Developer mode, choose Load unpacked and select this project's factori-bridge folder. With Studio running on port 8765, open or refresh <a href="https://retailing.factori.com/dashboard/products" target="_blank" rel="noopener noreferrer">My Products</a> and choose “Import to ProdXMart Studio” on a product card. You can also open Chrome’s Extensions menu → ProdXMart product importer to choose a product or import copied card text.</p></details>
-        <div id="factori-review" hidden><h2>Review Factori product</h2><p id="factori-values"></p><label>Store product page <input type="url" id="factori-url" placeholder="https://prodxmart.com/…"></label> <button id="factori-read">Read product page</button><p id="factori-status" role="status"></p><label>Studio product <select id="factori-target"></select></label> <button id="factori-apply" disabled>Use product details</button> <button id="factori-dismiss">Dismiss</button></div>
+        <div id="cat-kpis" class="cat-kpis" aria-label="Catalogue summary"></div>
+
+        <div class="card cat-toolbar-card">
+          <div class="cat-toolbar">
+            <label class="cat-search-wrap"><span class="sr">Search products</span><input type="search" id="search" placeholder="Search by name, SKU or category"></label>
+            <label><span class="sr">Promotion readiness</span><select id="filter"><option value="">All readiness</option><option value="ready">Ready to promote</option><option value="hold">Needs attention</option></select></label>
+            <label><span class="sr">Category filter</span><select id="cat-category"><option value="">All categories</option></select></label>
+            <label><span class="sr">Stock filter</span><select id="cat-stock"><option value="">All stock</option><option value="in">In stock (&gt; 0)</option><option value="low">Low stock (1–5)</option><option value="out">Out of stock (0)</option></select></label>
+            <label><span class="sr">Margin filter</span><select id="cat-margin"><option value="">All margins</option><option value="positive">Healthy (&gt; ₹0)</option><option value="nonpositive">Low / non-positive (≤ ₹0)</option></select></label>
+            <label><span class="sr">Sort products</span><select id="cat-sort"><option value="name_asc">Name (A–Z)</option><option value="margin_desc">Margin (High–Low)</option><option value="margin_asc">Margin (Low–High)</option><option value="price_desc">Price (High–Low)</option><option value="price_asc">Price (Low–High)</option><option value="stock_asc">Stock (Low–High)</option></select></label>
+            <button type="button" id="cat-clear" class="btn-ghost">Reset</button>
+            <div class="cat-view-switch" role="group" aria-label="Catalogue view mode">
+              <button type="button" id="cat-view-table" class="active" aria-pressed="true" title="Table view"><i data-lucide="list" style="width:15px;height:15px"></i><span>Table</span></button>
+              <button type="button" id="cat-view-grid" aria-pressed="false" title="Grid view"><i data-lucide="layout-grid" style="width:15px;height:15px"></i><span>Grid</span></button>
+            </div>
+            <small id="count" class="cat-count"></small>
+          </div>
+          <div id="cat-bulk-bar" class="cat-bulk-bar" hidden>
+            <span id="cat-bulk-count" class="badge info">0 selected</span>
+            <div class="agent-table-actions">
+              <button type="button" id="cat-bulk-select-page">Select page</button>
+              <button type="button" id="cat-bulk-clear">Clear selection</button>
+              <button type="button" id="cat-bulk-promote" class="primary">Promote selected in Campaigns</button>
+            </div>
+          </div>
+        </div>
+
+        <details id="factori-help" class="card cat-factori-card">
+          <summary>Import prices &amp; multi-page catalogues from Factori</summary>
+          <p class="hint">In Chrome, open <code>chrome://extensions</code>, enable Developer mode, choose <b>Load unpacked</b> and select this project's <code>factori-bridge</code> folder. Open <a href="https://retailing.factori.com/dashboard/products" target="_blank" rel="noopener noreferrer">Factori My Products</a> to import individual cards or scan all available pages into Studio.</p>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" id="cat-open-sync" onclick="window.StudioUI?.navigate('agents')">Open Multi-Page Catalog Agent Sync</button>
+          </div>
+        </details>
+        <div id="factori-review" class="card" hidden>
+          <h2 style="margin-bottom:6px">Review Factori product</h2>
+          <p id="factori-values"></p>
+          <div class="cat-toolbar" style="margin-top:10px">
+            <label>Store product page <input type="url" id="factori-url" placeholder="https://prodxmart.com/…"></label>
+            <button id="factori-read">Read product page</button>
+            <label>Studio product <select id="factori-target"></select></label>
+            <button id="factori-apply" class="primary" disabled>Use product details</button>
+            <button id="factori-dismiss">Dismiss</button>
+          </div>
+          <p id="factori-status" role="status" class="hint" style="margin-top:8px"></p>
+        </div>
+
         <div id="products"></div>
+        <div id="cat-pagination" class="cat-pagination" hidden></div>
       </section>
 
       <section id="queue" hidden>
@@ -425,14 +470,25 @@
 <label>Direct fees per unit (₹)<input name="fees" type="number" step=".01" min="0" value="0" required></label>
 <label>Available units<input name="stock" type="number" step="1" min="0" required></label>
 </div><p class="margin" id="margin" aria-live="polite"></p></fieldset>
-<fieldset><legend>Reel photos</legend><p class="hint">Choose a file, paste a copied photo with Ctrl+V (⌘V on Mac), or enter its image link below. The first photo is the cover. You can add photos later.</p>
-<button type="button" id="fetch-photos">Fetch photos from store</button><p id="photo-status" class="hint" role="status"></p>
-<label class="picker">Choose photos<input type="file" id="uploads" multiple accept="image/jpeg,image/png,image/webp"></label>
+<fieldset><legend>Reel photos</legend><p class="hint">Choose files, paste a copied photo with Ctrl+V (⌘V on Mac), or enter image links below. The first photo (#1 Cover) is used as the primary Reel thumbnail; reorder photos or set any photo as cover.</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0">
+  <button type="button" id="fetch-photos">Fetch photos from store</button>
+  <label class="picker" style="margin:0">Choose photos<input type="file" id="uploads" multiple accept="image/jpeg,image/png,image/webp"></label>
+</div>
+<p id="photo-status" class="hint" role="status"></p>
 <div id="photo-list" class="photos"></div>
 <label>Image links <small>Optional · one per line</small><textarea id="image-links" rows="2" placeholder="https://…/product-photo.jpg"></textarea></label>
 <label class="check"><input type="checkbox" name="media_ok">I have permission to use these photos for promotion.</label>
 <label>Telugu product feature <small>Optional</small><textarea name="feature_te" rows="2" maxlength="300"></textarea></label></fieldset>
 </div><div class="form-end"><div role="alert" id="form-error"></div><button type="button" id="cancel">Cancel</button><button class="primary" id="save">Save product</button></div></form></dialog>
+
+<dialog id="photo-lightbox" class="confirm-dialog" aria-label="Product photo preview" style="width:min(560px,94vw)">
+  <div class="form-head" style="padding:10px 14px;border-radius:8px;margin-bottom:10px">
+    <strong id="photo-lightbox-title">Photo preview</strong>
+    <button type="button" id="photo-lightbox-close" aria-label="Close photo preview">×</button>
+  </div>
+  <img id="photo-lightbox-img" alt="Preview" style="width:100%;max-height:70vh;object-fit:contain;border-radius:8px;background:var(--bg-subtle)">
+</dialog>
 
 <template id="card"><article><div class="video"><video preload="metadata" controls playsinline></video></div><div class="body"><div class="meta"><small class="sku"></small><small class="status"></small></div><h3></h3><p class="caption" lang="te"></p><p class="time"></p><p class="note"></p><div class="cardactions"></div></div></article></template>
 
