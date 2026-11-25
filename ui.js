@@ -52,6 +52,7 @@ async function refresh(){
  }
  if(!s.jobs.length){const h=element('div','');h.className='empty';h.append(element('strong','Your reel queue is empty'),element('p',demo?'Generate a batch to preview three Telugu Reels.':'Add a product with its photos in Products, then generate a weekly batch.'));$('#cards').append(h);}
  $('#approve').disabled=!s.jobs.some(j=>j.status==='Draft');
+ if(typeof window.refreshAgents==='function')window.refreshAgents().catch(()=>{});
 }
 async function post(path,data){
  if(busy)return;busy=true;document.body.setAttribute('aria-busy','true');$('#mode').disabled=true;$('#generate').disabled=true;
@@ -67,7 +68,7 @@ $('#refresh').onclick=()=>{notice('');refresh().catch(e=>notice(e.message,true))
 
 function updateHeading(){
  const demo=mode()==='demo';
- const info={catalogue:['Product catalogue',demo?'Sample products for trying the Reel workflow.':'Manage your store links, photos, prices and stock.'],queue:['Reel queue','Review and schedule your Telugu product Reels.'],report:['Sales report','Delivered orders, returns and operating profit for this workspace.']};
+ const info={catalogue:['Product catalogue',demo?'Sample products for trying the Reel workflow.':'Manage your store links, photos, prices and stock.'],queue:['Reel queue','Review and schedule your Telugu product Reels.'],report:['Sales report','Delivered orders, returns and operating profit for this workspace.'],agents:['AI Agent Center','Manually orchestrate local Ollama agents for catalogue audits, Telugu copy ideas and performance briefs.']};
  $('#page-title').textContent=info[activeTab][0];$('#sub').textContent=info[activeTab][1];
 }
 function openTab(tab){
@@ -77,5 +78,6 @@ function openTab(tab){
   b.classList.toggle('active',current);b.setAttribute('aria-pressed',String(current));$('#'+b.dataset.tab).hidden=!current;
  });
  updateHeading();
+ if(tab==='agents'&&typeof window.refreshAgents==='function')window.refreshAgents().catch(e=>notice(e.message,true));
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>openTab(b.dataset.tab));

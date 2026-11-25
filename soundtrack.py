@@ -25,11 +25,14 @@ def tone(midi, beats, bass=False):
     return samples
 
 
-def write_music(path):
-    mix = array('f', [0]) * (RATE * SECONDS)
+def write_music(path, seconds=SECONDS):
+    total_seconds = max(1, int(seconds))
+    mix = array('f', [0]) * (RATE * total_seconds)
 
     def add(beat, sound, gain):
         start = round(beat * BEAT * RATE)
+        if start >= len(mix):
+            return
         for i in range(min(len(sound), len(mix) - start)):
             mix[start + i] += sound[i] * gain
 
@@ -44,7 +47,8 @@ def write_music(path):
         hat.append((noise - previous) * exp(-95 * t))
         previous = noise
     chords = [(50, 66, 69, 73), (45, 64, 69, 71), (47, 62, 66, 69), (43, 62, 67, 71)]
-    for bar in range(8):
+    total_bars = max(8, int((total_seconds / (4 * BEAT)) + 1))
+    for bar in range(total_bars):
         root, low, mid, high = chords[bar % 4]
         start = bar * 4
         for beat in (0, 2, 2.75):

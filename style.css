@@ -5,3 +5,91 @@
 [hidden]{display:none!important}
 
 #factori-help{margin-bottom:14px}#factori-help summary{cursor:pointer;color:var(--green)}#factori-help p{max-width:78ch;margin-top:7px}#factori-review{margin-bottom:16px;padding:16px;border:1px solid var(--border);border-radius:10px;background:white}#factori-review h2{margin:0}#factori-values{margin:8px 0 12px}#factori-target{max-width:100%}
+.agent-banner{margin:20px 0 16px;padding:12px 16px;border:1px solid #bfd7cb;border-radius:10px;background:#eaf4ef;color:#143e36;font-size:14px}
+.agent-config-panel,.agent-history-panel{background:white;border:1px solid var(--border);border-radius:12px;padding:18px 20px;margin-bottom:20px}
+.agent-panel-head,.agent-section-head,.agent-history-controls,.agent-card-top,.agent-detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.agent-panel-head h2,.agent-section-head h2{margin:0;font-size:20px}
+.agent-config-actions{display:flex;gap:10px;flex-wrap:wrap}
+.agent-config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:14px}
+.agent-config-grid label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:#2c4a44}
+.agent-config-grid input,.agent-config-grid select{margin-left:0;width:100%}
+.ollama-status{margin-top:12px;font-size:14px;color:#415c56}
+.ollama-status.ok{color:#155d3d;font-weight:600}
+.ollama-status.warn{color:#7c520d;font-weight:600}
+.ollama-status.fail{color:#9b3022;font-weight:600}
+.agent-section-head{margin:18px 0 12px}
+.agent-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.agent-card{background:white;border:1px solid var(--border);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.agent-card.orchestrator{grid-column:1/-1;border-color:#9fc4b6;background:#fbfdfb}
+.agent-card.is-disabled{opacity:.78}
+.agent-role{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:3px 9px;border-radius:999px;background:#e8eee9;color:#285046}
+.agent-role.is-master{background:#145f53;color:white}
+.agent-status{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;background:#e6ece8;color:#354d47}
+.agent-status.status-running,.agent-status.status-queued{background:#dceefb;color:#124d78}
+.agent-status.status-succeeded{background:#dff3e6;color:#145735}
+.agent-status.status-failed{background:#fbe3df;color:#93281b}
+.agent-status.status-cancelled{background:#f7ecd5;color:#7a4f0c}
+.agent-card h3{margin:0;font-size:20px}
+.agent-meta,.agent-desc,.agent-idle-note{margin:0;font-size:13px;color:#4f6661}
+.agent-desc{font-size:14px;color:#25403c}
+.agent-progress-wrap{display:flex;flex-direction:column;gap:4px}
+.agent-progress-bar{height:8px;border-radius:999px;background:#e5ece7;overflow:hidden}
+.agent-progress-fill{height:100%;background:#145f53;transition:width .25s ease}
+.agent-progress-fill.status-failed{background:#a53324}
+.agent-progress-fill.status-cancelled{background:#b17b19}
+.agent-progress-text{font-size:12px;color:#4c635e}
+.agent-output-summary{margin:0;font-size:14px;font-weight:600;color:#164c3e}
+.agent-output-details summary{cursor:pointer;font-size:13px;color:var(--green);font-weight:600}
+.agent-output-details pre,.agent-run-detail pre{margin:8px 0 0;padding:12px;background:#f4f7f5;border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:260px;font-size:12px;white-space:pre-wrap;word-break:break-word}
+.agent-error-text{margin:0;font-size:13px;color:#9b3022;font-weight:600}
+.agent-table-actions{display:flex;gap:6px;flex-wrap:wrap}
+.agent-table-actions button{padding:5px 9px;font-size:12px}
+.agent-run-detail{margin-top:16px;padding:16px;border:1px solid var(--border);border-radius:10px;background:#fafcfa}
+.agent-log-list{margin:8px 0 0;padding-left:18px;font-size:13px;display:flex;flex-direction:column;gap:6px}
+.agent-log-list li.log-error{color:#9b3022}
+.agent-log-list li.log-warning{color:#7a4f0c}
+.agent-check{display:flex!important;flex-direction:row!important;align-items:center!important;gap:8px!important;align-self:end;padding:8px 0}
+.agent-check input{width:auto!important;margin:0!important}
+.catalog-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin-top:12px}
+.catalog-stat{padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fafcfa}
+.catalog-stat small{display:block;font-size:12px;color:#51665c}
+.catalog-stat b{display:block;font-size:18px;margin-top:2px;color:#143e36}
+.catalog-diagnostics{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:12px}
+.catalog-diag-bucket{border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:#fff;font-size:13px}
+.catalog-diag-bucket.has-issues{border-color:#e2c391;background:#fffaf0}
+.catalog-diag-bucket summary{cursor:pointer;font-weight:600;color:#274640}
+.catalog-diag-bucket ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.catalog-card-pills{display:flex;flex-wrap:wrap;gap:6px}
+.catalog-pill{font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;background:#e8eee9;color:#23473f}
+.marketing-preview{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.mkt-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.mkt-toolbar select{max-width:480px}
+.mkt-product-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:#fbfdfb;display:flex;flex-direction:column;gap:12px}
+.mkt-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.mkt-field{background:white;border:1px solid #e3eae5;border-radius:8px;padding:8px 10px}
+.mkt-field small{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#4f6860;margin-bottom:3px}
+.mkt-field p{margin:0;font-size:13px;white-space:pre-line;color:#173b37}
+.mkt-storyboard th,.mkt-storyboard td{font-size:13px;padding:8px 10px}
+.video-qa-preview{margin-top:16px;display:flex;flex-direction:column;gap:14px}
+.vid-qa-card{display:grid;grid-template-columns:230px 1fr;gap:16px;border:1px solid var(--border);border-radius:10px;padding:14px;background:#fbfdfb}
+.vid-player-col video{width:100%;height:360px;object-fit:contain;background:#102723;border-radius:8px;display:block}
+.vid-info-col{display:flex;flex-direction:column;gap:10px}
+.qa-checks-grid{display:flex;flex-wrap:wrap;gap:6px}
+.qa-check-pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
+.qa-check-pill.pass{background:#dff3e6;color:#145735}
+.qa-check-pill.fail{background:#fbe3df;color:#93281b}
+.qa-human-review{border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.qa-review-checks{display:flex;gap:14px;flex-wrap:wrap}
+.qa-chk-label{display:inline-flex;align-items:center;gap:4px;font-weight:500}
+.qa-chk-label input{margin:0;width:auto}
+.btn-danger{background:#9b3022;color:white;border-color:#9b3022}
+.agent-banner.is-stopped{background:#fbe3df;border-color:#d88f85;color:#7a1c12;font-weight:600}
+.social-calendar{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:10px 0 18px}
+.cal-day{border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fafcfa;font-size:13px}
+.cal-day ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.social-posts{display:flex;flex-direction:column;gap:14px}
+.social-post-card{border:1px solid var(--border);border-radius:10px;padding:14px 16px;background:#fbfdfb;display:flex;flex-direction:column;gap:10px}
+.social-edit-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.social-edit-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#2c4a44}
+.social-edit-grid input,.social-edit-grid textarea{width:100%;margin:0;font-size:13px}
+@media(max-width:760px){.agent-cards{grid-template-columns:1fr}.agent-card.orchestrator{grid-column:auto}.vid-qa-card{grid-template-columns:1fr}}

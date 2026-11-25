@@ -2,12 +2,176 @@
 <body><header><div class="wrap top"><div class="brand"><b>ProdXMart</b><span>Promotion Studio</span></div><label>Workspace <select id="mode"><option value="store">My store</option><option value="demo">Demo catalogue</option></select></label></div></header>
 <main class="wrap"><section class="intro"><div><h1 id="page-title">Product catalogue</h1><p id="sub"></p></div><div class="cardactions"><button id="add" class="primary">＋ Add product</button><button id="generate">Generate weekly batch</button></div></section>
 <div id="feedback" role="status"></div>
-<nav aria-label="Studio sections"><button data-tab="catalogue" class="active">Products</button><button data-tab="queue">Reel queue</button><button data-tab="report">Sales report</button></nav>
+<nav aria-label="Studio sections"><button data-tab="catalogue" class="active">Products</button><button data-tab="queue">Reel queue</button><button data-tab="report">Sales report</button><button data-tab="agents">AI Agent Center</button></nav>
 <section id="catalogue"><div class="filterbar"><label><span class="sr">Search products</span><input type="search" id="search" placeholder="Search by name, SKU or category"></label><label><span class="sr">Promotion readiness</span><select id="filter"><option value="">All products</option><option value="ready">Ready to promote</option><option value="hold">Needs attention</option></select></label><small id="count"></small></div><details id="factori-help"><summary>Import prices from Factori</summary><p class="hint">In Chrome, open chrome://extensions, enable Developer mode, choose Load unpacked and select this project's factori-bridge folder. With Studio running on port 8765, open or refresh <a href="https://retailing.factori.com/dashboard/products" target="_blank" rel="noopener noreferrer">My Products</a> and choose “Import to ProdXMart Studio” on a product card. You can also open Chrome’s Extensions menu → ProdXMart product importer to choose a product or import copied card text.</p></details>
 <div id="factori-review" hidden><h2>Review Factori product</h2><p id="factori-values"></p><label>Store product page <input type="url" id="factori-url" placeholder="https://prodxmart.com/…"></label> <button id="factori-read">Read product page</button><p id="factori-status" role="status"></p><label>Studio product <select id="factori-target"></select></label> <button id="factori-apply" disabled>Use product details</button> <button id="factori-dismiss">Dismiss</button></div>
 <div id="products"></div></section>
 <section id="queue" hidden><div class="actions"><label>First post · India time <input type="datetime-local" id="start"></label><button id="approve">Approve all drafts</button><a id="bio" hidden>Export shop links</a></div><div id="cards" class="cards"></div></section>
 <section id="report" hidden><div id="metrics" class="metrics"></div><h2>Sales by campaign</h2><p>Campaigns without an order match appear as unattributed.</p><div id="campaigns"></div></section>
+<section id="agents" hidden>
+  <div class="agent-banner" role="note">
+    <strong>Phase 1 Local Guardrails:</strong> Manual execution is the default. Agents read local Studio data and call your local Ollama server only — they never publish social media posts, spend money, or require Factori API access.
+  </div>
+  <div class="agent-config-panel">
+    <div class="agent-panel-head">
+      <div><h2>Global Agent Configuration</h2><p class="hint">Configure local Ollama connectivity, default model, retries and manual execution limits.</p></div>
+      <div class="agent-config-actions">
+        <button type="button" id="agent-test-ollama">Test Ollama connection</button>
+        <button type="button" id="agent-save-config" class="primary">Save configuration</button>
+      </div>
+    </div>
+    <div class="agent-config-grid">
+      <label>Ollama API URL<input type="url" id="agent-ollama-url" placeholder="http://localhost:11434"></label>
+      <label>Default model<input type="text" id="agent-default-model" placeholder="qwen2.5:3b"></label>
+      <label>Execution mode<select id="agent-exec-mode"><option value="manual">Manual execution (default)</option></select></label>
+      <label>Max retries<input type="number" id="agent-max-retries" min="0" max="5" step="1"></label>
+      <label>Request timeout (s)<input type="number" id="agent-timeout" min="5" max="600" step="1"></label>
+    </div>
+    <div id="ollama-status" class="ollama-status" role="status"></div>
+  </div>
+  <div id="catalog-sync-panel" class="agent-config-panel">
+    <div class="agent-panel-head">
+      <div><h2>Catalog Agent · Sync &amp; Diagnostics</h2><p class="hint">Import across all Factori Bridge pages or CSV without Factori API access, validate images with retries, and track stock freshness.</p></div>
+      <div class="agent-config-actions">
+        <button type="button" id="catalog-pull-extension">Load from Factori extension</button>
+        <button type="button" id="catalog-run-sync" class="primary">Run Catalog Sync</button>
+      </div>
+    </div>
+    <div class="agent-config-grid">
+      <label>Import source<select id="catalog-source">
+        <option value="local_catalogue">Local workspace catalogue</option>
+        <option value="extension">Factori Bridge extension batch</option>
+        <option value="csv">CSV file upload</option>
+      </select></label>
+      <label id="catalog-csv-wrap" hidden>CSV file<input type="file" id="catalog-csv-file" accept=".csv,text/csv"></label>
+      <label class="agent-check"><input type="checkbox" id="catalog-fetch-photos" checked>Fetch missing product page photos</label>
+    </div>
+    <p id="catalog-staged-status" class="hint"></p>
+    <div id="catalog-stats" class="catalog-stats"></div>
+    <div id="catalog-diagnostics" class="catalog-diagnostics"></div>
+  </div>
+  <div id="marketing-panel" class="agent-config-panel">
+    <div class="agent-panel-head">
+      <div><h2>Marketing Agent · Campaigns, Preview &amp; Video Handoff</h2><p class="hint">Generate grounded English or Telugu scripts, storyboards, captions and CTAs from verified Sales/Catalogue products without inventing prices, discounts, reviews or stock.</p></div>
+      <div class="agent-config-actions">
+        <button type="button" id="mkt-generate" class="primary">Generate Marketing Campaign</button>
+      </div>
+    </div>
+    <div class="agent-config-grid">
+      <label>Campaign type<select id="mkt-campaign-type">
+        <option value="single_product">Single product</option>
+        <option value="multi_product">Multi-product</option>
+        <option value="category">Category-based</option>
+        <option value="seasonal">Seasonal</option>
+      </select></label>
+      <label>Language<select id="mkt-language">
+        <option value="te">Telugu (తెలుగు)</option>
+        <option value="en">English</option>
+        <option value="bilingual">Bilingual (Telugu + English)</option>
+      </select></label>
+      <label>Products <small>(optional · auto-selects from Sales/Catalogue if none)</small><select id="mkt-skus" multiple size="3"></select></label>
+      <label id="mkt-category-wrap" hidden>Category<input type="text" id="mkt-category" placeholder="e.g. Bags"></label>
+      <label id="mkt-season-wrap" hidden>Seasonal theme<input type="text" id="mkt-season" placeholder="e.g. Sankranti / Summer"></label>
+    </div>
+    <div id="marketing-preview" class="marketing-preview"></div>
+  </div>
+  <div id="video-qa-panel" class="agent-config-panel">
+    <div class="agent-panel-head">
+      <div><h2>Video Production &amp; Quality Assurance</h2><p class="hint">Render 1080×1920 vertical H.264 + AAC videos (15s, 30s, or 60s) with ducked music &amp; voiceover, verify audio/streams with FFprobe, and enforce human review before publishing.</p></div>
+      <div class="agent-config-actions">
+        <button type="button" id="vid-audit-reels">Audit Existing Reels</button>
+        <button type="button" id="vid-run-qa">Run QA Check</button>
+        <button type="button" id="vid-generate" class="primary">Generate Video</button>
+      </div>
+    </div>
+    <div class="agent-config-grid">
+      <label>Duration<select id="vid-duration">
+        <option value="15">15 seconds</option>
+        <option value="30">30 seconds</option>
+        <option value="60">60 seconds</option>
+      </select></label>
+      <label>Language<select id="vid-language">
+        <option value="te">Telugu (తెలుగు)</option>
+        <option value="en">English</option>
+        <option value="bilingual">Bilingual</option>
+      </select></label>
+      <label>Voiceover mode<select id="vid-vo-mode">
+        <option value="auto">Auto (Approved TTS / Music)</option>
+        <option value="music_only">Rights-cleared music only</option>
+        <option value="recorded">Recorded audio file path</option>
+      </select></label>
+      <label id="vid-recorded-wrap" hidden>Recorded audio path<input type="text" id="vid-recorded-path" placeholder="C:\path\to\narration.wav"></label>
+      <label>Target products <small>(optional · uses Marketing handoff if empty)</small><select id="vid-skus" multiple size="3"></select></label>
+      <label class="agent-check"><input type="checkbox" id="vid-duck" checked>Duck music during narration</label>
+    </div>
+    <div id="video-qa-preview" class="video-qa-preview"></div>
+  </div>
+  <div id="social-approval-panel" class="agent-config-panel">
+    <div class="agent-panel-head">
+      <div><h2>Social Media Agent &amp; Approval Center</h2><p class="hint">Prepare Instagram Reels, Facebook Reels and YouTube Shorts manual publishing packages. Explicit human approval is required; approval invalidates automatically if video, price or product details change.</p></div>
+      <div class="agent-config-actions">
+        <button type="button" id="social-global-stop">Stop All Publishing</button>
+        <button type="button" id="social-prepare" class="primary">Prepare Social Posts</button>
+      </div>
+    </div>
+    <div id="social-stop-banner" class="agent-banner" hidden></div>
+    <div class="agent-config-grid">
+      <label>Video production<select id="social-production-select"><option value="">Latest QA-passed video</option></select></label>
+      <div>
+        <small style="display:block;font-weight:600;margin-bottom:6px;color:#2c4a44">Platforms</small>
+        <div class="qa-review-checks">
+          <label class="qa-chk-label"><input type="checkbox" class="social-plat" value="instagram_reels" checked> Instagram Reels</label>
+          <label class="qa-chk-label"><input type="checkbox" class="social-plat" value="facebook_reels" checked> Facebook Reels</label>
+          <label class="qa-chk-label"><input type="checkbox" class="social-plat" value="youtube_shorts" checked> YouTube Shorts</label>
+        </div>
+      </div>
+      <label>Filter status<select id="social-status-filter">
+        <option value="">All statuses</option>
+        <option value="Draft">Draft</option>
+        <option value="Awaiting Approval">Awaiting Approval</option>
+        <option value="Approved">Approved</option>
+        <option value="Scheduled">Scheduled</option>
+        <option value="Published">Published</option>
+        <option value="Failed">Failed</option>
+      </select></label>
+    </div>
+    <h3>Publishing Calendar (IST)</h3>
+    <div id="social-calendar" class="social-calendar"></div>
+    <h3>Approval Queue &amp; Manual Publishing Packages</h3>
+    <div id="social-posts" class="social-posts"></div>
+    <details id="social-creds-box" class="agent-output-details" style="margin-top:14px">
+      <summary>Future Official Meta &amp; YouTube API Credentials (Encrypted Storage)</summary>
+      <p class="hint">Optional for future API publishing. Credentials are encrypted at rest and never exposed in plain text or CSVs. No ad spend is permitted.</p>
+      <div class="agent-config-grid">
+        <label>Meta Graph Version<input type="text" id="cred-meta_graph_version" placeholder="v21.0"></label>
+        <label>Instagram Account ID<input type="text" id="cred-meta_ig_id" placeholder="Numeric IG ID"></label>
+        <label>Instagram Access Token<input type="password" id="cred-meta_ig_token" placeholder="Encrypted at rest"></label>
+        <label>Facebook Page ID<input type="text" id="cred-meta_fb_page_id" placeholder="Numeric Page ID"></label>
+        <label>Facebook Page Token<input type="password" id="cred-meta_fb_page_token" placeholder="Encrypted at rest"></label>
+        <label>YouTube Channel ID<input type="text" id="cred-youtube_channel_id" placeholder="Channel ID"></label>
+        <label>YouTube OAuth Token<input type="password" id="cred-youtube_oauth_token" placeholder="Encrypted at rest"></label>
+      </div>
+      <p id="social-creds-status" class="hint"></p>
+      <button type="button" id="social-save-creds">Save Encrypted Credentials</button>
+    </details>
+  </div>
+  <div class="agent-section-head">
+    <h2>Master Orchestrator &amp; Agents</h2>
+    <small id="agent-queue-summary" class="hint"></small>
+  </div>
+  <div id="agent-cards" class="agent-cards"></div>
+  <div class="agent-history-panel">
+    <div class="agent-section-head">
+      <h2>Execution History &amp; Error Logs</h2>
+      <div class="agent-history-controls">
+        <label><span class="sr">Filter history by agent</span><select id="agent-history-filter"><option value="">All agents</option></select></label>
+        <button type="button" id="agent-history-refresh">Refresh history</button>
+      </div>
+    </div>
+    <div id="agent-runs"></div>
+    <div id="agent-run-detail" class="agent-run-detail" hidden></div>
+  </div>
+</section>
 <footer><span id="conn"></span><button class="plain" id="refresh">Refresh data</button></footer></main>
 <dialog id="editor" aria-labelledby="form-title"><form id="product-form"><div class="form-head"><h2 id="form-title">Add product</h2><button type="button" id="close" aria-label="Close editor">×</button></div>
 <div class="form-scroll"><fieldset><legend>Product details</legend>
@@ -28,4 +192,4 @@
 <label class="check"><input type="checkbox" name="media_ok">I have permission to use these photos for promotion.</label>
 <label>Telugu product feature <small>Optional</small><textarea name="feature_te" rows="2" maxlength="300"></textarea></label></fieldset>
 </div><div class="form-end"><div role="alert" id="form-error"></div><button type="button" id="cancel">Cancel</button><button class="primary" id="save">Save product</button></div></form></dialog>
-<template id="card"><article><div class="video"><video preload="metadata" controls playsinline></video></div><div class="body"><div class="meta"><small class="sku"></small><small class="status"></small></div><h3></h3><p class="caption" lang="te"></p><p class="time"></p><p class="note"></p><div class="cardactions"></div></div></article></template><script src="/ui.js"></script><script src="/editor.js"></script></body></html>
+<template id="card"><article><div class="video"><video preload="metadata" controls playsinline></video></div><div class="body"><div class="meta"><small class="sku"></small><small class="status"></small></div><h3></h3><p class="caption" lang="te"></p><p class="time"></p><p class="note"></p><div class="cardactions"></div></div></article></template><script src="/ui.js"></script><script src="/editor.js"></script><script src="/agents.js"></script></body></html>

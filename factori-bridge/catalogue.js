@@ -14,6 +14,7 @@ function render() {
   if(el('list').selectedIndex<0 && options.length) el('list').selectedIndex=0;
   el('count').textContent=options.length+' of '+state.cards.length;
   el('review').disabled=el('list').selectedIndex<0;
+  if(el('sync')) el('sync').disabled=!state.cards.length;
 }
 function summary(){
   return state.pages+' page'+(state.pages===1?'':'s')+(state.total?' of '+state.total:'')+' read · '+state.cards.length+' products.';
@@ -41,6 +42,21 @@ el('search').oninput=render;
 el('review').onclick=()=>{
   const card=state.cards[Number(el('list').value)];
   if(card)chrome.tabs.create({url:'http://127.0.0.1:8765/#factori='+encodeURIComponent(JSON.stringify(card))});
+};
+if(el('sync')) el('sync').onclick=async()=>{
+  if(!state.cards.length)return;
+  el('sync').disabled=true;
+  try{
+    await chrome.runtime.sendMessage({
+      type:'stage-factori-catalog',
+      batch:{cards:state.cards, pages_count:state.pages, total_pages:state.total, scanned_at:new Date().toISOString()}
+    });
+    await chrome.tabs.create({url:'http://127.0.0.1:8765/#catalog-sync=1'});
+  }catch(err){
+    el('status').textContent=summary()+' Could not send batch to Studio: '+(err?.message||err);
+  }finally{
+    el('sync').disabled=!state.cards.length;
+  }
 };
 window.addEventListener('pagehide',()=>{if(source!==undefined)chrome.tabs.remove(source).catch(()=>{});});
 scan();

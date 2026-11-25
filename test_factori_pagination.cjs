@@ -56,3 +56,33 @@ test('detects next, numbered pages and an explicitly disabled final control',()=
   assert.equal(inspect('Page 32 of 32',[['Next',true]],32).end,true);
   assert.equal(inspect('',[],1).end,false);
 });
+
+test('scans beyond 32 pages dynamically and deduplicates by SKU + variant', async () => {
+  const list = state();
+  let current = 1;
+  await scan(list, {
+    snapshot: async () => ({
+      current,
+      total: 40,
+      end: current === 40,
+      cards: current === 1
+        ? [
+            { sku: 'BAG-10', variant: 'Grey', name: 'Khadi Bag', price: 799, cost: 450 },
+            { sku: 'BAG-10', variant: 'Blue', name: 'Khadi Bag', price: 799, cost: 450 },
+          ]
+        : current === 2
+        ? [{ sku: 'BAG-10', variant: 'Grey', name: 'Khadi Bag', price: 799, cost: 450 }]
+        : [card(current)],
+    }),
+    advance: async () => { current++; return true; },
+    progress: () => {},
+    wait: async () => {},
+  });
+  assert.equal(list.pages, 40);
+  assert.equal(list.total, 40);
+  // Page 1 (2 variants) + Page 2 duplicate skipped + Pages 3..40 (38 items) = 40 unique items.
+  assert.equal(list.cards.length, 40);
+  assert.equal(list.cards[0].variant, 'Grey');
+  assert.equal(list.cards[1].variant, 'Blue');
+  assert.equal(list.cards.at(-1).page, 40);
+});

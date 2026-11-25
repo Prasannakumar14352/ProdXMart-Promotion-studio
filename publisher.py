@@ -8,6 +8,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
 from engine import LOCK, db, now, reason, video_path
+from agents.qa_agent import verify_job_for_publishing
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -43,6 +44,10 @@ def update(c,jid,state,note='',container=None,media=None):
 
 
 def run_due():
+    from agents.storage import AgentStorage
+    storage = AgentStorage()
+    if storage.is_global_publishing_stopped():
+        return
     with LOCK,closing(db()) as c:
         due=c.execute("SELECT * FROM jobs WHERE status='Scheduled' AND due<=? ORDER BY due",(now().isoformat(),)).fetchall()
         for j in due:
@@ -53,6 +58,8 @@ def run_due():
             publishing=False
             try:
                 why=reason(j['mode'],j)
+                if not why:
+                    why=verify_job_for_publishing(c, j)
                 if why:
                     update(c,j['id'],'Held',why);continue
                 if j['mode']=='demo':
@@ -74,6 +81,8 @@ def run_due():
                     time.sleep(10)
                 else:raise ValueError('Video processing timed out. Inspect the container before retrying.')
                 why=reason('store',j)
+                if not why:
+                    why=verify_job_for_publishing(c, j)
                 if why:
                     update(c,j['id'],'Held',why);continue
                 publishing=True
