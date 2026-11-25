@@ -647,9 +647,9 @@ def build_overview_payload(orch, *, mode: str, date_range: str = 'month') -> dic
         'integration_health': {
             'ollama': {'label': 'Ollama AI', 'status': 'configured', 'detail': f"{ollama_cfg['default_model']} @ {ollama_cfg['ollama_base_url']}"},
             'ffmpeg': {'label': 'FFmpeg Engine', 'status': 'ready' if ff_ok else 'missing', 'detail': '1080×1920 H.264/AAC ready' if ff_ok else 'FFmpeg not found'},
-            'factori_bridge': {'label': 'Factori Bridge', 'status': 'ready' if staged else 'standby', 'detail': f"{staged['item_count']} staged" if staged else 'Extension bridge ready'},
+            'factori_bridge': {'label': 'Factori Bridge', 'status': 'ready' if staged else 'standby', 'detail': f"{staged['item_count']} staged" if staged else 'Extension bridge active'},
             'instagram': {'label': 'Instagram API', 'status': 'connected' if enabled() else 'disconnected', 'detail': 'Live configured' if enabled() else 'Manual / local mode'},
-            'factori_api': {'label': 'Factori Official API', 'status': 'pending', 'detail': 'Pending official API access'},
+            'factori_api': {'label': 'Factori Official API', 'status': 'optional', 'detail': 'Optional — Pending Access'},
             'global_publishing': {'label': 'Publishing Gate', 'status': 'paused' if social_settings['global_publishing_stopped'] else 'manual', 'detail': 'Global Stop Active' if social_settings['global_publishing_stopped'] else 'Human approval required'},
         },
     }
@@ -681,6 +681,12 @@ def build_system_integrations_payload(orch, *, mode: str):
         except Exception:
             ext_version = 'Unreadable'
     staged = orch.storage.get_staged_catalog_batch(mode)
+    catalog_freshness = orch.storage.get_catalog_freshness_summary(
+        mode=mode,
+        max_age_hours=cfg.get('maximum_catalogue_age_hours', 72),
+    )
+    local_products_count = len(catalogue(mode))
+    orders_rows_count = len(list(records(directory(mode) / 'orders.csv', 'order_id line_id sku delivered_units returned_units sales refunds net_product_cost fees campaign'.split())))
 
     checklist = []
     checklist_file = ROOT / 'FACTORI_API_CHECKLIST.md'
@@ -728,6 +734,18 @@ def build_system_integrations_payload(orch, *, mode: str):
                 'staged_items': staged['item_count'] if staged else 0,
                 'staged_pages': staged['pages_count'] if staged else 0,
             },
+            'csv_excel_import': {
+                'name': 'CSV & Excel (.xlsx) Imports',
+                'status': 'ready',
+                'products_source': 'Supported (CSV & .xlsx)',
+                'financial_orders': orders_rows_count,
+            },
+            'manual_catalogue': {
+                'name': 'Manual Product Management',
+                'status': 'ready',
+                'active_products': local_products_count,
+                'media_validation': 'Local gallery & commercial permission checks enabled',
+            },
             'instagram_facebook': {
                 'name': 'Meta Instagram & Facebook Official API',
                 'status': 'connected' if enabled() else 'not_configured',
@@ -739,11 +757,13 @@ def build_system_integrations_payload(orch, *, mode: str):
                 'credentials': {k: v for k, v in cred_status.items() if k.startswith('youtube_')},
             },
             'factori_official_api': {
-                'name': 'Factori Official API',
-                'status': 'pending',
+                'name': 'Official Factori API',
+                'status': 'optional_pending',
+                'label': 'Optional — Pending Access',
                 'checklist': checklist,
             },
         },
+        'catalog_freshness': catalog_freshness,
         'safe_config': {
             'weekly_slots': cfg.get('weekly_slots', []),
             'minimum_stock': cfg.get('minimum_stock', 0),

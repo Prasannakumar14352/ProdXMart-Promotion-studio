@@ -130,7 +130,7 @@ class CatalogAgent(BaseAgent):
 
         source = str(ctx.payload.get('source') or '').strip().lower()
         if not source:
-            if ctx.payload.get('csv_content') or ctx.payload.get('csv_path'):
+            if ctx.payload.get('csv_content') or ctx.payload.get('csv_path') or ctx.payload.get('xlsx_base64') or ctx.payload.get('xlsx_path'):
                 source = 'csv'
             elif ctx.payload.get('items') or ctx.payload.get('cards') or ctx.payload.get('pages'):
                 source = 'extension'

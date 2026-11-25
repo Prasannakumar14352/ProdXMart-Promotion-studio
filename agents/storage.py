@@ -627,10 +627,29 @@ class AgentStorage:
         fresh = 0
         stale = 0
         unknown = 0
+        price_fresh = 0
+        price_stale = 0
+        price_missing = 0
         latest_sync = ''
+        latest_source = ''
         for item in items:
             if item['last_synced_at'] > latest_sync:
                 latest_sync = item['last_synced_at']
+                latest_source = item.get('supplier_source') or latest_source
+            if not item.get('price'):
+                price_missing += 1
+            else:
+                try:
+                    p_dt = datetime.fromisoformat(item['last_synced_at'])
+                    if p_dt.tzinfo is None:
+                        p_dt = p_dt.replace(tzinfo=engine.IST)
+                    if 0 <= (current_dt - p_dt).total_seconds() / 3600.0 <= max_age_hours:
+                        price_fresh += 1
+                    else:
+                        price_stale += 1
+                except ValueError:
+                    price_stale += 1
+
             if item['stock_status'] == 'unknown' or not item['stock_verified_at']:
                 unknown += 1
                 continue
@@ -645,12 +664,41 @@ class AgentStorage:
                     stale += 1
             except ValueError:
                 unknown += 1
+
+        catalogue_items = engine.catalogue(mode)
+        with_images = sum(1 for p in catalogue_items.values() if p.get('files'))
+        missing_images = max(0, len(catalogue_items) - with_images)
+
+        runs = self.list_runs(agent_id='catalog_agent', mode=mode, limit=20)
+        last_success_run = next((r for r in runs if r['status'] == 'succeeded'), None)
+        last_successful_import_at = (last_success_run.get('finished_at') or last_success_run.get('created_at')) if last_success_run else latest_sync
+
+        if not latest_source and catalogue_items:
+            latest_source = 'local_catalogue'
+        source_labels = {
+            'extension': 'Factori Bridge extension',
+            'csv': 'CSV / Excel import',
+            'local_catalogue': 'Manual / Local catalogue',
+            'factori_api': 'Factori Official API',
+        }
         return {
             'total_tracked': len(items),
             'fresh': fresh,
             'stale': stale,
             'unknown': unknown,
             'last_synced_at': latest_sync,
+            'last_successful_import_at': last_successful_import_at,
+            'data_source': source_labels.get(latest_source, latest_source or 'Manual / Local catalogue'),
+            'price_freshness': {
+                'fresh': price_fresh,
+                'stale': price_stale,
+                'missing': price_missing,
+            },
+            'image_availability': {
+                'total_products': len(catalogue_items),
+                'with_images': with_images,
+                'missing_images': missing_images,
+            },
         }
 
     def stage_catalog_batch(self, mode: str, source: str, payload: dict[str, Any]) -> dict[str, Any]:

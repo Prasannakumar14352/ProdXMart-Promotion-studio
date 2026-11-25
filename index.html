@@ -246,6 +246,7 @@
       <!-- EXISTING FUNCTIONAL SECTIONS (Preserved & progressively upgraded in Phases 2-6) -->
       <section id="catalogue" hidden>
         <div id="cat-kpis" class="cat-kpis" aria-label="Catalogue summary"></div>
+        <div id="cat-freshness-strip" class="catalog-stats" style="margin-bottom:14px" aria-label="Catalogue freshness summary"></div>
 
         <div class="card cat-toolbar-card">
           <div class="cat-toolbar">
@@ -449,8 +450,8 @@
             </div>
           </div>
           <div class="agent-config-grid">
-            <label>Import source<select id="catalog-source"><option value="local_catalogue">Local workspace catalogue</option><option value="extension">Factori Bridge extension batch</option><option value="csv">CSV file upload</option></select></label>
-            <label id="catalog-csv-wrap" hidden>CSV file<input type="file" id="catalog-csv-file" accept=".csv,text/csv"></label>
+            <label>Import source<select id="catalog-source"><option value="local_catalogue">Local workspace catalogue</option><option value="extension">Factori Bridge extension batch</option><option value="csv">CSV / Excel (.csv, .xlsx) upload</option></select></label>
+            <label id="catalog-csv-wrap" hidden>CSV / Excel file<input type="file" id="catalog-csv-file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label>
             <label class="agent-check"><input type="checkbox" id="catalog-fetch-photos" checked>Fetch missing product page photos</label>
           </div>
           <p id="catalog-staged-status" class="hint"></p>
@@ -606,12 +607,15 @@
           <div class="agent-config-panel">
             <div class="agent-panel-head">
               <div>
-                <h2>Factori Official API Readiness Checklist</h2>
-                <p class="hint">Pending official Factori API access — tracked from <code>FACTORI_API_CHECKLIST.md</code>. Factori Bridge &amp; CSV imports operate independently in the meantime.</p>
+                <h2>Future Integration Requirements (Optional)</h2>
+                <p class="hint">Official Factori API access is an optional future enhancement. Factori Bridge, CSV/Excel imports, and manual product management power all 8 agents independently today.</p>
               </div>
-              <span class="badge warning">API Access Optional / Pending</span>
+              <span class="badge info">Optional — Pending Access</span>
             </div>
-            <div id="factori-checklist-view"></div>
+            <details id="future-factori-roadmap" class="agent-output-details" style="margin-top:10px">
+              <summary>Expand Official Factori API Readiness Checklist (FACTORI_API_CHECKLIST.md)</summary>
+              <div id="factori-checklist-view" style="margin-top:10px"></div>
+            </details>
           </div>
         </div>
 

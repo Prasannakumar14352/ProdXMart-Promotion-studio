@@ -16,7 +16,7 @@
   function badgeClass(status) {
     const s = String(status || '').toLowerCase();
     if (['succeeded', 'ready', 'connected', 'configured'].includes(s)) return 'badge success';
-    if (['running', 'queued', 'manual'].includes(s)) return 'badge info';
+    if (['running', 'queued', 'manual', 'optional_pending', 'optional'].includes(s)) return 'badge info';
     if (['failed', 'missing', 'paused', 'error'].includes(s)) return 'badge error';
     if (['pending', 'not_configured', 'standby', 'cancelled'].includes(s)) return 'badge warning';
     return 'badge';
@@ -111,14 +111,38 @@
       {
         key: 'factori_bridge',
         title: ints.factori_bridge?.name || 'Factori Bridge Extension',
-        status: ints.factori_bridge?.status || 'standby',
+        status: (document.documentElement.dataset.factoriReader || ints.factori_bridge?.staged_items > 0) ? 'ready' : (ints.factori_bridge?.status || 'standby'),
         details: [
-          `Extension version: ${ints.factori_bridge?.version || 'Unknown'}`,
-          `Staged items: ${ints.factori_bridge?.staged_items ?? 0}`,
-          `Scanned pages: ${ints.factori_bridge?.staged_pages ?? 0}`,
+          `Browser bridge: ${document.documentElement.dataset.factoriReader ? 'Connected in active browser tab' : 'Not detected in this browser tab (load unpacked factori-bridge)'}`,
+          `Manifest on disk: v${ints.factori_bridge?.version || 'Unknown'}`,
+          `Staged items: ${ints.factori_bridge?.staged_items ?? 0} across ${ints.factori_bridge?.staged_pages ?? 0} page(s)`,
         ],
         actionLabel: 'Open Catalog Sync',
         onAction: () => window.StudioUI?.navigate('agents'),
+      },
+      {
+        key: 'csv_excel_import',
+        title: ints.csv_excel_import?.name || 'CSV & Excel (.xlsx) Imports',
+        status: ints.csv_excel_import?.status || 'ready',
+        details: [
+          `Catalogue upload: ${ints.csv_excel_import?.products_source || 'Supported (CSV & .xlsx)'}`,
+          `Orders & expenses ledger: ${ints.csv_excel_import?.financial_orders ?? 0} order row(s) loaded`,
+          'Supports orders, refunds, returns, expenses & bank settlements.',
+        ],
+        actionLabel: 'Open Sales Analytics',
+        onAction: () => window.StudioUI?.navigate('analytics'),
+      },
+      {
+        key: 'manual_catalogue',
+        title: ints.manual_catalogue?.name || 'Manual Product Management',
+        status: ints.manual_catalogue?.status || 'ready',
+        details: [
+          `Workspace catalogue: ${ints.manual_catalogue?.active_products ?? 0} product(s)`,
+          ints.manual_catalogue?.media_validation || 'Local gallery & commercial permission checks enabled',
+          'Full price, cost, stock, photo upload & reorder editor active.',
+        ],
+        actionLabel: 'Open Product Catalogue',
+        onAction: () => window.StudioUI?.navigate('catalogue'),
       },
       {
         key: 'instagram_facebook',
@@ -154,12 +178,13 @@
       },
       {
         key: 'factori_official_api',
-        title: ints.factori_official_api?.name || 'Factori Official API',
-        status: ints.factori_official_api?.status || 'pending',
+        title: ints.factori_official_api?.name || 'Official Factori API',
+        status: ints.factori_official_api?.status || 'optional_pending',
+        statusLabel: ints.factori_official_api?.label || 'Optional — Pending Access',
         details: [
-          'Official API credentials not yet provided.',
-          'Replaceable SupplierAdapter ready in agents/catalog_agent.py.',
-          'Zero blocker: Extension multi-page scan + CSV imports work now.',
+          'Optional future enhancement (not required to run Studio).',
+          'Modular SupplierAdapter boundary ready in agents/catalog_adapter.py.',
+          'Zero workflow blocking: Extension, CSV/Excel & Manual tools work today.',
         ],
       },
     ];
@@ -167,7 +192,7 @@
     for (const d of defs) {
       const card = makeEl('article', '', 'integration-card');
       const head = makeEl('div', '', 'meta');
-      head.append(makeEl('strong', d.title), makeEl('span', d.status.replace('_', ' '), badgeClass(d.status)));
+      head.append(makeEl('strong', d.title), makeEl('span', d.statusLabel || d.status.replace('_', ' '), badgeClass(d.status)));
       card.append(head);
       const ul = document.createElement('ul');
       ul.className = 'checklist-list';

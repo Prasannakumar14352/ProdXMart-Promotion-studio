@@ -100,8 +100,10 @@ def validate_product_for_social(
     sku: str,
     *,
     expected_price: Optional[float] = None,
+    storage: Optional[Any] = None,
+    require_fresh: bool = False,
 ) -> tuple[bool, str, Optional[dict[str, Any]]]:
-    """Recheck stock, current price and readiness rules before approval, scheduling or publishing."""
+    """Recheck stock, current price, freshness and readiness rules before approval, scheduling or publishing."""
     cfg = engine.config()
     catalogue = engine.catalogue(mode)
     p = catalogue.get(sku)
@@ -115,6 +117,27 @@ def validate_product_for_social(
         return False, f'Product {sku} has non-positive margin.', p
     if expected_price is not None and abs(float(p['price']) - float(expected_price)) > 0.01:
         return False, f'Product {sku} price changed from ₹{expected_price:.2f} to ₹{float(p["price"]):.2f}.', p
+
+    if mode == 'store':
+        max_age_sec = float(cfg.get('maximum_catalogue_age_hours', 72)) * 3600.0
+        cat_mtime = (engine.directory(mode) / 'catalogue.csv').stat().st_mtime
+        raw_stamp = p.get('_studio_verified_at')
+        verified_ts = float(raw_stamp) if raw_stamp else cat_mtime
+        age_sec = engine.now().timestamp() - verified_ts
+        if require_fresh and (age_sec < -300 or age_sec > max_age_sec):
+            return (
+                False,
+                f'Stock and price verification required before publishing for SKU {sku}: imported details exceed {cfg["maximum_catalogue_age_hours"]}h freshness window. Re-verify in Catalogue or re-sync.',
+                p,
+            )
+        if storage is not None:
+            sync_matches = [it for it in storage.list_catalog_sync_items(mode=mode) if it['sku'].upper() == sku.upper()]
+            if any(it.get('stock_status') == 'unknown' for it in sync_matches) and not raw_stamp:
+                return (
+                    False,
+                    f'Stock verification required before publishing for SKU {sku}: imported stock status is unknown.',
+                    p,
+                )
     return True, '', p
 
 
@@ -218,7 +241,7 @@ def approve_social_post(storage: Any, *, mode: str, post_id: str, note: str = ''
     if not probe['ok']:
         raise ValueError('Video QA check failed: ' + '; '.join(probe['failures']))
 
-    ok, reason, product = validate_product_for_social(mode, post['sku'])
+    ok, reason, product = validate_product_for_social(mode, post['sku'], storage=storage, require_fresh=True)
     if not ok or not product:
         raise ValueError(reason)
 
@@ -362,7 +385,7 @@ def publish_or_prepare_social_post(
     if post['status'] not in ('Approved', 'Scheduled'):
         raise ValueError(f'Explicit human approval is required before publishing (current status: {post["status"]}).')
 
-    ok, reason, product = validate_product_for_social(mode, post['sku'], expected_price=post.get('price_snapshot'))
+    ok, reason, product = validate_product_for_social(mode, post['sku'], expected_price=post.get('price_snapshot'), storage=storage, require_fresh=True)
     if not ok or not product:
         storage.mark_social_failed(post_id=post_id, mode=mode, error_message=reason)
         raise ValueError(reason)

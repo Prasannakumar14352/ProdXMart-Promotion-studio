@@ -218,33 +218,61 @@ class ExtensionBatchAdapter(SupplierCatalogAdapter):
 
 
 class CsvSupplierAdapter(SupplierCatalogAdapter):
-    """Consumes local CSV files or uploaded CSV content without Factori API access."""
+    """Consumes local CSV or OOXML Excel (.xlsx) files without Factori API access."""
 
     adapter_id = 'csv'
-    display_name = 'CSV Catalogue Import'
+    display_name = 'CSV / Excel Catalogue Import'
 
-    def __init__(self, *, csv_path: Optional[Path] = None, csv_content: Optional[str] = None, page_size: int = 50):
+    def __init__(
+        self,
+        *,
+        csv_path: Optional[Path] = None,
+        csv_content: Optional[str] = None,
+        xlsx_path: Optional[Path] = None,
+        xlsx_base64: Optional[str] = None,
+        page_size: int = 50,
+    ):
         self.csv_path = csv_path
         self.csv_content = csv_content
+        self.xlsx_path = xlsx_path
+        self.xlsx_base64 = xlsx_base64
         self._page_size = max(1, int(page_size))
 
     def fetch_pages(self) -> Iterator[CatalogPage]:
-        if self.csv_content is not None:
-            text = self.csv_content.lstrip('\ufeff')
-        elif self.csv_path is not None:
-            if not self.csv_path.is_file():
-                raise AgentConfigurationError(f'CSV file not found: {self.csv_path}')
-            text = self.csv_path.read_text(encoding='utf-8-sig')
+        rows: list[dict[str, Any]] = []
+        if self.xlsx_base64 or self.xlsx_path is not None:
+            import base64
+            from agents.excel_io import read_xlsx_sheets
+            if self.xlsx_base64:
+                raw_bytes = base64.b64decode(self.xlsx_base64)
+            else:
+                if not self.xlsx_path.is_file():
+                    raise AgentConfigurationError(f'Excel file not found: {self.xlsx_path}')
+                raw_bytes = self.xlsx_path.read_bytes()
+            sheets = read_xlsx_sheets(raw_bytes)
+            picked = None
+            for srows in sheets.values():
+                if srows and any(k.strip().lower() in ('sku', 'name', 'product_name', 'item code') for k in srows[0].keys()):
+                    picked = srows
+                    break
+            rows = picked if picked is not None else next(iter(sheets.values()), [])
         else:
-            raise AgentConfigurationError('Provide csv_content or csv_path for CSV catalog import.')
+            if self.csv_content is not None:
+                text = self.csv_content.lstrip('\ufeff')
+            elif self.csv_path is not None:
+                if not self.csv_path.is_file():
+                    raise AgentConfigurationError(f'CSV file not found: {self.csv_path}')
+                text = self.csv_path.read_text(encoding='utf-8-sig')
+            else:
+                raise AgentConfigurationError('Provide csv_content, csv_path, or an Excel .xlsx file for catalog import.')
 
-        reader = csv.DictReader(io.StringIO(text))
-        if not reader.fieldnames:
-            raise AgentConfigurationError('CSV file has no header row.')
-        rows = [
-            row for row in reader
-            if None not in row and any((v or '').strip() for v in row.values())
-        ]
+            reader = csv.DictReader(io.StringIO(text))
+            if not reader.fieldnames:
+                raise AgentConfigurationError('CSV file has no header row.')
+            rows = [
+                row for row in reader
+                if None not in row and any((str(v) or '').strip() for v in row.values())
+            ]
         if not rows:
             yield CatalogPage(page_number=1, total_pages=1, has_next=False, items=[])
             return
@@ -340,9 +368,15 @@ def build_supplier_adapter(
             cards = staged_batch.get('cards')
             pages = staged_batch.get('pages')
         return ExtensionBatchAdapter(cards=cards, pages=pages)
-    if kind == 'csv':
+    if kind in ('csv', 'excel', 'xlsx'):
         csv_path = Path(data['csv_path']) if data.get('csv_path') else None
-        return CsvSupplierAdapter(csv_path=csv_path, csv_content=data.get('csv_content'))
+        xlsx_path = Path(data['xlsx_path']) if data.get('xlsx_path') else None
+        return CsvSupplierAdapter(
+            csv_path=csv_path,
+            csv_content=data.get('csv_content'),
+            xlsx_path=xlsx_path,
+            xlsx_base64=data.get('xlsx_base64'),
+        )
     if kind == 'factori_api':
         return FactoriApiAdapter(
             api_base_url=str(data.get('api_base_url') or ''),

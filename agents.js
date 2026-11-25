@@ -6,6 +6,7 @@
   let lastSucceededRunIds = new Set();
   let stagedCsvText = '';
   let stagedCsvName = '';
+  let stagedXlsxBase64 = '';
   let selectedCampaignId = null;
 
   const STATUS_LABELS = {
@@ -413,10 +414,23 @@
       ['Imported (new)', stats ? stats.imported_products : 0],
       ['Updated', stats ? stats.updated_products : 0],
       ['Failed', stats ? stats.failed_products : 0],
-      ['Missing images', stats ? stats.missing_images : 0],
+      ['Data source', freshness.data_source || 'Manual / Local catalogue'],
       ['Stock freshness', `${freshness.fresh ?? 0} fresh · ${freshness.stale ?? 0} stale · ${freshness.unknown ?? 0} unknown`],
+      ['Price freshness', `${freshness.price_freshness?.fresh ?? 0} fresh · ${freshness.price_freshness?.stale ?? 0} stale · ${freshness.price_freshness?.missing ?? 0} missing`],
+      ['Image availability', `${freshness.image_availability?.with_images ?? 0} with photos · ${freshness.image_availability?.missing_images ?? (stats ? stats.missing_images : 0)} missing`],
       ['Last synced', formatTime(stats?.last_synced_at || freshness.last_synced_at)],
+      ['Last successful import', formatTime(freshness.last_successful_import_at)],
     ];
+    const catStrip = document.getElementById('cat-freshness-strip');
+    if (catStrip) {
+      catStrip.replaceChildren();
+      for (const [k, v] of statItems.slice(4)) {
+        const box = element('div', '');
+        box.className = 'catalog-stat';
+        box.append(element('small', k), element('b', String(v)));
+        catStrip.append(box);
+      }
+    }
     for (const [k, v] of statItems) {
       const box = element('div', '');
       box.className = 'catalog-stat';
@@ -1371,11 +1385,23 @@
       const file = e.target.files?.[0];
       if (!file) {
         stagedCsvText = '';
+        stagedXlsxBase64 = '';
         stagedCsvName = '';
         return;
       }
-      stagedCsvText = await file.text();
       stagedCsvName = file.name;
+      if (file.name.toLowerCase().endsWith('.xlsx')) {
+        stagedCsvText = '';
+        stagedXlsxBase64 = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onerror = () => reject(Error('Could not read Excel file'));
+          r.onload = () => resolve(String(r.result || '').split(',')[1] || '');
+          r.readAsDataURL(file);
+        });
+      } else {
+        stagedXlsxBase64 = '';
+        stagedCsvText = await file.text();
+      }
       if (agentState) renderCatalogPanel(agentState);
     };
   }
@@ -1403,8 +1429,9 @@
           fetch_store_gallery: Boolean($('#catalog-fetch-photos').checked),
         };
         if (source === 'csv') {
-          if (!stagedCsvText) throw Error('Choose a CSV file before running CSV catalog sync.');
-          payload.csv_content = stagedCsvText;
+          if (!stagedCsvText && !stagedXlsxBase64) throw Error('Choose a CSV or Excel (.xlsx) file before running catalog sync.');
+          if (stagedXlsxBase64) payload.xlsx_base64 = stagedXlsxBase64;
+          else payload.csv_content = stagedCsvText;
         }
         const res = await agentPost('/agents/run', { agent_id: 'catalog_agent', payload });
         selectedRunId = res.run?.id || null;

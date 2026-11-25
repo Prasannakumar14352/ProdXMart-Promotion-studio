@@ -361,10 +361,12 @@
       const stack = el('div', 'list-stack');
       for (const info of Object.values(data.integration_health || {})) {
         const row = el('div', 'list-row');
-        const cls = ['ready', 'connected', 'configured', 'manual'].includes(info.status) ? 'success' : (info.status === 'paused' || info.status === 'missing' ? 'error' : 'warning');
+        const cls = ['ready', 'connected', 'configured', 'manual'].includes(info.status)
+          ? 'success'
+          : (info.status === 'optional' ? 'info' : (info.status === 'paused' || info.status === 'missing' ? 'error' : 'warning'));
         const left = el('div', '');
         left.append(el('div', 'list-row-title', info.label), el('div', 'list-row-sub', info.detail));
-        row.append(left, el('span', 'badge ' + cls, info.status));
+        row.append(left, el('span', 'badge ' + cls, info.status === 'optional' ? 'Optional' : info.status));
         stack.append(row);
       }
       healthBox.append(stack);

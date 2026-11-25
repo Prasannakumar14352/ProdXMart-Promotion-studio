@@ -55,3 +55,9 @@
 - **Known Limitations**:
   - Interactive Chrome DevTools DOM console event clicking remains blocked until Chrome remote debugging (`DevToolsActivePort`) is enabled in the user's Chrome session; visual inspection was performed via Microsoft Edge headless screenshot rendering.
   - `edit_file` permission on `test_social_approval.py` was declined during this pass, so the new `POST /agents/social/request-changes` backend handler is verified via code inspection + syntax/import checks in the suite while existing `test_social_approval.py` remains untouched and passing (`3/3`).
+
+## Optional Factori API Architecture & Independent Workflows (`feature/audit-refinement`)
+- **Python Full Regression Suite**: **39/39 passed** in `193.728s` (`OK`), including `test_full_platform_workflow_without_official_factori_api` (`test_factori_optional.py`) proving end-to-end execution of all 8 orchestrator agents, `.xlsx`/CSV catalogue & financial imports (`orders`, `bank_settlements` auto-detect), ₹35 positive unit-margin preservation, Integrations readiness + 6 freshness indicators, stale stock/price publishing gate enforcement, and non-blocking `FactoriApiAdapter`.
+- **Node Factori Bridge Full Suite**: **11/11 passed** (`test_factori_details.cjs` 6/6 in `185.5024ms`, `test_factori_pagination.cjs` 5/5 in `29.3177ms`).
+- **JS Syntax Verification (`node --check`)**: **9/9 passed** (`ui.js`, `editor.js`, `agents.js`, `js/ui_core.js`, `js/overview.js`, `js/agent_views.js`, `js/phase4_studio.js`, `js/phase5_publishing.js`, `js/phase6_analytics.js`).
+- **Headless Microsoft Edge Visual Verification**: Inspected `after_integrations_v2_1440.png` and `after_catalogue_v2_1440.png` at `1440x900`, confirming calm `Optional — Pending Access` status for Official Factori API, expandable **Future Integration Requirements** checklist, CSV/Excel & Manual source cards, live Factori Bridge detection status, and all 6 freshness strip cards in Product Catalogue.

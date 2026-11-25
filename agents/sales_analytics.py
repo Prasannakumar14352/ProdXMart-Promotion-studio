@@ -570,7 +570,7 @@ def import_financial_upload(
                     })
                     imported_orders += 1
 
-            elif {'reference', 'amount'}.issubset(sample_keys) and ('settlement' in s_lower or target == 'settlements'):
+            elif {'reference', 'amount'}.issubset(sample_keys) and ('settlement' in s_lower or target == 'settlements' or 'settled_at' in sample_keys):
                 for r in rows:
                     norm = {k.strip().lower(): str(v or '').strip() for k, v in r.items()}
                     ref = norm.get('reference', '')

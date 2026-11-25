@@ -390,7 +390,10 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         sys_int = json.loads(sys_int_raw)
         self.assertIn('ollama', sys_int['integrations'])
         self.assertIn('factori_official_api', sys_int['integrations'])
-        self.assertEqual(sys_int['integrations']['factori_official_api']['status'], 'pending')
+        self.assertEqual(sys_int['integrations']['factori_official_api']['status'], 'optional_pending')
+        self.assertEqual(sys_int['integrations']['csv_excel_import']['status'], 'ready')
+        self.assertEqual(sys_int['integrations']['manual_catalogue']['status'], 'ready')
+        self.assertIn('catalog_freshness', sys_int)
         self.assertGreaterEqual(len(sys_int['integrations']['factori_official_api']['checklist']), 10)
         self.assertNotIn('token', json.dumps(sys_int['safe_config']).lower())
 
@@ -400,7 +403,7 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         self.assertEqual(ov['kpis']['total_products'], 5)
         self.assertEqual(ov['kpis']['ready_products'], 4)
         self.assertEqual(ov['kpis']['attention_products'], 1)
-        self.assertEqual(ov['integration_health']['factori_api']['status'], 'pending')
+        self.assertEqual(ov['integration_health']['factori_api']['status'], 'optional')
 
         code, state_json = invoke_handler('GET', '/state?mode=demo', orchestrator=orch)
         self.assertEqual(code, 200)

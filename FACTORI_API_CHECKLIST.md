@@ -1,6 +1,6 @@
-# Factori Official API Integration Checklist
+# Factori Official API Integration Roadmap
 
-Status: **Pending** (Official Factori API access/credentials are not required and not yet supplied; Factori Bridge Chrome extension + CSV import remain active).
+Status: **Optional — Pending Access** (Official Factori API credentials are an optional future enhancement, NOT a required dependency. Factori Bridge Chrome extension, CSV/Excel imports, manual product management, and all 8 local AI agents operate independently without Factori API access.)
 
 - [ ] API documentation received and reviewed
 - [ ] Authentication & token refresh flow verified
