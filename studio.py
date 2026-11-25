@@ -3,6 +3,7 @@ import csv
 import html
 import json
 import os
+from pathlib import Path
 import re
 import socket
 import threading
@@ -29,7 +30,20 @@ from agents.social_agent import (
     schedule_social_post,
 )
 
-ASSETS={'/':('index.html','text/html'),'/ui.js':('ui.js','text/javascript'),'/editor.js':('editor.js','text/javascript'),'/agents.js':('agents.js','text/javascript'),'/style.css':('style.css','text/css')}
+ASSETS={
+    '/':('index.html','text/html'),
+    '/ui.js':('ui.js','text/javascript'),
+    '/editor.js':('editor.js','text/javascript'),
+    '/agents.js':('agents.js','text/javascript'),
+    '/style.css':('style.css','text/css'),
+    '/css/tokens.css':('css/tokens.css','text/css'),
+    '/css/components.css':('css/components.css','text/css'),
+    '/css/layout.css':('css/layout.css','text/css'),
+    '/js/ui_core.js':('js/ui_core.js','text/javascript'),
+    '/js/overview.js':('js/overview.js','text/javascript'),
+    '/vendor/lucide.min.js':('assets/vendor/lucide.min.js','text/javascript'),
+    '/vendor/chart.umd.min.js':('assets/vendor/chart.umd.min.js','text/javascript'),
+}
 
 _ORCH_LOCK = threading.Lock()
 _ORCHESTRATOR = None
@@ -83,6 +97,12 @@ class Handler(BaseHTTPRequestHandler):
                     thumb.thumbnail((220,220))
                     result=BytesIO();thumb.save(result,'JPEG',quality=82)
                 return self.respond(result.getvalue(),'image/jpeg')
+            if u.path=='/api/overview':
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                params=parse_qs(u.query)
+                mode=params.get('mode',['store'])[0];directory(mode)
+                date_range=params.get('range',['month'])[0]
+                return self.respond(build_overview_payload(orch, mode=mode, date_range=date_range))
             if u.path=='/state':
                 mode=parse_qs(u.query).get('mode',['demo'])[0]
                 with closing(db()) as c:
@@ -354,6 +374,203 @@ class Handler(BaseHTTPRequestHandler):
             else:return self.respond({'error':'Unknown action'},code=404)
             return self.respond({'message':msg})
         except Exception as e:self.respond({'error':str(e)},code=400)
+
+
+def build_overview_payload(orch, *, mode: str, date_range: str = 'month') -> dict:
+    from decimal import Decimal
+    import shutil
+    from agents.social_agent import reconcile_social_approvals
+    base = directory(mode)
+    items = catalogue(mode)
+    products = list(items.values())
+    ready_products = [p for p in products if not p['issues']]
+    attention_products = [p for p in products if p['issues']]
+
+    issue_counts = {}
+    for p in attention_products:
+        for iss in p['issues']:
+            issue_counts[iss] = issue_counts.get(iss, 0) + 1
+
+    recommended = sorted(
+        ready_products,
+        key=lambda p: (-p['margin'], -p['stock'], p['sku']),
+    )[:6]
+    recommended_list = [
+        {
+            'sku': p['sku'],
+            'name': p['name'],
+            'category': p['category'],
+            'price': float(p['price']),
+            'cost': float(p['cost']),
+            'margin': float(p['margin']),
+            'stock': p['stock'],
+            'photo_count': len(p['files']),
+            'has_photo': bool(p['files'] and p['files'][0].is_file()),
+            'product_url': p['product_url'],
+        }
+        for p in recommended
+    ]
+
+    # Financial aggregates from actual CSV files without inventing records.
+    order_ids = set()
+    delivered_units = 0
+    returned_units = 0
+    gross_sales = Decimal(0)
+    refunds = Decimal(0)
+    product_cost = Decimal(0)
+    order_fees = Decimal(0)
+    campaigns_units = {}
+    campaigns_sales = {}
+    heads = 'order_id line_id sku delivered_units returned_units sales refunds net_product_cost fees campaign'.split()
+    for r in records(base / 'orders.csv', heads):
+        oid = r['order_id']
+        order_ids.add(oid)
+        q, ret = int(r['delivered_units']), int(r['returned_units'])
+        s = Decimal(r['sales'])
+        f = Decimal(r['refunds'])
+        c = Decimal(r['net_product_cost'])
+        g = Decimal(r['fees'])
+        delivered_units += q
+        returned_units += ret
+        gross_sales += s
+        refunds += f
+        product_cost += c
+        order_fees += g
+        camp = r['campaign'] or 'Unattributed'
+        campaigns_units[camp] = campaigns_units.get(camp, 0) + (q - ret)
+        campaigns_sales[camp] = float(Decimal(str(campaigns_sales.get(camp, 0))) + (s - f))
+
+    ad_spend = Decimal(0)
+    other_expenses = Decimal(0)
+    expense_by_type = {}
+    for row in records(base / 'expenses.csv', ['reference', 'type', 'amount']):
+        amt = Decimal(row['amount'])
+        etype = (row['type'] or 'Other').strip()
+        expense_by_type[etype] = float(Decimal(str(expense_by_type.get(etype, 0))) + amt)
+        if 'advert' in etype.lower() or 'ad' == etype.lower():
+            ad_spend += amt
+        else:
+            other_expenses += amt
+
+    net_sales = gross_sales - refunds
+    total_expenses = product_cost + order_fees + ad_spend + other_expenses
+    operating_profit = net_sales - total_expenses
+    margin_pct = round((float(operating_profit) / float(net_sales) * 100.0), 1) if net_sales > 0 else 0.0
+
+    with closing(db()) as c:
+        jobs = [dict(j) for j in c.execute('SELECT id,sku,name,status,due,note,created FROM jobs WHERE mode=? ORDER BY created DESC', (mode,))]
+
+    reconcile_social_approvals(orch.storage, mode)
+    social_posts = orch.storage.list_social_posts(mode=mode, limit=100)
+    video_prods = orch.storage.list_video_productions(mode=mode, limit=25)
+    runs = orch.storage.list_runs(mode=mode, limit=12)
+
+    pending_social = sum(1 for p in social_posts if p['status'] in ('Draft', 'Awaiting Approval'))
+    pending_qa = sum(1 for v in video_prods if v['qa_status'] == 'passed' and v['human_review_status'] == 'pending')
+    pending_approvals = pending_social + pending_qa
+
+    scheduled_promotions = (
+        sum(1 for j in jobs if j['status'] == 'Scheduled')
+        + sum(1 for p in social_posts if p['status'] == 'Scheduled')
+    )
+    published_promotions = (
+        sum(1 for j in jobs if j['status'] in ('Published', 'Simulated'))
+        + sum(1 for p in social_posts if p['status'] == 'Published')
+    )
+
+    upcoming = []
+    for p in social_posts:
+        if p['status'] in ('Scheduled', 'Approved'):
+            upcoming.append({
+                'id': p['id'],
+                'title': f"{p['platform'].replace('_', ' ').title()} · {p['sku']}",
+                'sku': p['sku'],
+                'status': p['status'],
+                'due': p['scheduled_at'] or p['approved_at'],
+                'source': 'social',
+            })
+    for j in jobs:
+        if j['status'] in ('Scheduled', 'Draft'):
+            upcoming.append({
+                'id': j['id'],
+                'title': j['name'],
+                'sku': j['sku'],
+                'status': j['status'],
+                'due': j['due'] or j['created'],
+                'source': 'reel_queue',
+            })
+    upcoming.sort(key=lambda x: x['due'] or '', reverse=False)
+
+    # Integration health from real environment/config state.
+    ollama_cfg = orch.get_config()
+    ff_ok = bool(shutil.which('ffmpeg'))
+    if not ff_ok:
+        try:
+            import creative
+            ff_ok = Path(creative.ffmpeg()).is_file()
+        except Exception:
+            ff_ok = False
+    staged = orch.storage.get_staged_catalog_batch(mode)
+    social_settings = orch.storage.get_social_settings()
+
+    return {
+        'mode': mode,
+        'range': date_range,
+        'app_version': '2.0.0',
+        'kpis': {
+            'total_products': len(products),
+            'ready_products': len(ready_products),
+            'ready_pct': round((len(ready_products) / len(products) * 100.0), 1) if products else 0.0,
+            'attention_products': len(attention_products),
+            'pending_approvals': pending_approvals,
+            'scheduled_promotions': scheduled_promotions,
+            'published_promotions': published_promotions,
+            'orders': len(order_ids),
+            'delivered_units': delivered_units,
+            'returned_units': returned_units,
+            'gross_sales': float(gross_sales),
+            'refunds': float(refunds),
+            'net_sales': float(net_sales),
+            'total_expenses': float(total_expenses),
+            'operating_profit': float(operating_profit),
+            'profit_margin_pct': margin_pct,
+        },
+        'financial_breakdown': {
+            'gross_sales': float(gross_sales),
+            'refunds': float(refunds),
+            'net_sales': float(net_sales),
+            'product_cost': float(product_cost),
+            'order_fees': float(order_fees),
+            'ad_spend': float(ad_spend),
+            'other_expenses': float(other_expenses),
+            'operating_profit': float(operating_profit),
+            'expense_by_type': expense_by_type,
+        },
+        'campaigns': [
+            {
+                'campaign': k,
+                'units': campaigns_units[k],
+                'net_sales': campaigns_sales.get(k, 0.0),
+            }
+            for k in campaigns_units
+        ],
+        'recommended_products': recommended_list,
+        'attention_breakdown': [
+            {'issue': k, 'count': v}
+            for k, v in sorted(issue_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ],
+        'upcoming_promotions': upcoming[:6],
+        'agent_activity': runs[:6],
+        'active_agent_count': sum(1 for r in runs if r['status'] in ('queued', 'running')),
+        'integration_health': {
+            'ollama': {'label': 'Ollama AI', 'status': 'configured', 'detail': f"{ollama_cfg['default_model']} @ {ollama_cfg['ollama_base_url']}"},
+            'ffmpeg': {'label': 'FFmpeg Engine', 'status': 'ready' if ff_ok else 'missing', 'detail': '1080×1920 H.264/AAC ready' if ff_ok else 'FFmpeg not found'},
+            'factori_bridge': {'label': 'Factori Bridge', 'status': 'ready' if staged else 'standby', 'detail': f"{staged['item_count']} staged" if staged else 'Extension bridge ready'},
+            'instagram': {'label': 'Instagram API', 'status': 'connected' if enabled() else 'disconnected', 'detail': 'Live configured' if enabled() else 'Manual / local mode'},
+            'factori_api': {'label': 'Factori Official API', 'status': 'pending', 'detail': 'Pending official API access'},
+            'global_publishing': {'label': 'Publishing Gate', 'status': 'paused' if social_settings['global_publishing_stopped'] else 'manual', 'detail': 'Global Stop Active' if social_settings['global_publishing_stopped'] else 'Human approval required'},
+        },
+    }
 
 
 def worker():

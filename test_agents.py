@@ -377,6 +377,18 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertIn('refreshAgents', agents_js)
 
+        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
+            acode, _ = invoke_handler('GET', asset_path, orchestrator=orch, decode=False)
+            self.assertEqual(acode, 200, f'Failed to serve {asset_path}')
+
+        code, ov_raw = invoke_handler('GET', '/api/overview?mode=demo&range=month', orchestrator=orch)
+        self.assertEqual(code, 200)
+        ov = json.loads(ov_raw)
+        self.assertEqual(ov['kpis']['total_products'], 5)
+        self.assertEqual(ov['kpis']['ready_products'], 4)
+        self.assertEqual(ov['kpis']['attention_products'], 1)
+        self.assertEqual(ov['integration_health']['factori_api']['status'], 'pending')
+
         code, state_json = invoke_handler('GET', '/state?mode=demo', orchestrator=orch)
         self.assertEqual(code, 200)
         self.assertEqual(len(json.loads(state_json)['products']), 5)
