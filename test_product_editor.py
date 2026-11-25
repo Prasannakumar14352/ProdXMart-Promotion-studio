@@ -118,5 +118,35 @@ class ProductWorkflow(unittest.TestCase):
         save(dict(self.product,sku='IMPORT',version=old['version']))
         with path.open(encoding='utf-8-sig') as f:self.assertEqual(next(csv.DictReader(f))['supplier_note'],'Keep')
 
+    def test_photo_order_and_positive_margin_eligibility(self):
+        img_a = base64.b64decode(self.photo)
+        from PIL import Image
+        from io import BytesIO
+        buf_b = BytesIO()
+        Image.new('RGB', (1200, 1200), (20, 90, 180)).save(buf_b, 'PNG')
+        b64_b = base64.b64encode(buf_b.getvalue()).decode()
+        save(dict(self.product, sku='ORDER1', price='250', cost='180', fees='35', new=[{'base64': self.photo}]))
+        row = details('ORDER1')
+        self.assertEqual(len(row['photos']), 1)
+        first_photo = row['photos'][0]
+        save(dict(
+            self.product,
+            sku='ORDER1',
+            price='250',
+            cost='180',
+            fees='35',
+            version=row['version'],
+            keep=[first_photo],
+            new=[{'base64': b64_b}],
+            photo_order=['new:0', 'keep:' + first_photo],
+        ))
+        updated = details('ORDER1')
+        self.assertEqual(len(updated['photos']), 2)
+        self.assertEqual(updated['photos'][1], first_photo)
+        self.assertNotEqual(updated['photos'][0], first_photo)
+        cat_item = engine.catalogue('store')['ORDER1']
+        self.assertEqual(float(cat_item['margin']), 35.0)
+        self.assertEqual(cat_item['issues'], [])
+
 if __name__=='__main__':
     unittest.main()

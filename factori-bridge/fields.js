@@ -21,6 +21,11 @@ function factoriSku(text, pathname = '') {
   return labelled?.[1] || (text + ' ' + pathname).match(/\b(?:SKUFACTORI|SMP)\d+\b/i)?.[0].toUpperCase() || '';
 }
 
+function factoriVariant(text) {
+  const match = (text || '').match(/(?:^|\n)\s*(?:variant|colour|color|size)\s*[:：]\s*([^\n]{1,60})/i);
+  return match ? match[1].replace(/\s+/g, ' ').trim() : '';
+}
+
 function productImageUrl(value, base) {
   if (!value) return '';
   try {

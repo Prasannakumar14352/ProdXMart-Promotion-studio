@@ -32,9 +32,10 @@
     const urls = anchors.filter(a=>/^https?:/.test(a.href)).map(a => new URL(a.href));
     const shop = urls.find(u => u.protocol === 'https:' && ['prodxmart.com','www.prodxmart.com'].includes(u.hostname) && u.pathname !== '/');
     const sku = factoriSku(text, urls.map(u=>u.pathname + ' ' + u.search).join(' '));
+    const variant = typeof factoriVariant === 'function' ? factoriVariant(text) : '';
     const images = [...new Set(Array.from(card.querySelectorAll('img'), img =>
       productImageSource(img, location.href)).filter(Boolean))].slice(0,6);
-    return {name, sku, stock:factoriStock(text), images, product_url: shop?.href || '', ...prices};
+    return {name, sku, variant, stock:factoriStock(text), images, product_url: shop?.href || '', ...prices};
   }
 
   function findCard(start) {

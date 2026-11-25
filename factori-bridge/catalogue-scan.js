@@ -22,10 +22,12 @@ async function scanCatalogue(state, {snapshot, advance, wait, progress}) {
     state.pages++;
     state.total = page.total || state.total;
     for (const card of page.cards) {
-      const key = card.sku ? 'sku:' + card.sku : card.product_url ? 'url:' + card.product_url : '';
+      const normSku = (card.sku || '').trim().toUpperCase();
+      const normVariant = (card.variant || '').trim().toLowerCase();
+      const key = normSku ? 'sku:' + normSku + '::' + normVariant : card.product_url ? 'url:' + card.product_url : '';
       if (key && state.keys.has(key)) continue;
       if (key) state.keys.add(key);
-      state.cards.push(card);
+      state.cards.push({...card, page: card.page || state.pages});
     }
     progress();
     if (page.end) return;

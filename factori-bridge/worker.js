@@ -59,8 +59,19 @@ async function readPhoto(value) {
   return {base64:btoa(bytes), mime};
 }
 
+let stagedCatalogBatch = null;
+
 chrome.runtime.onMessage.addListener((message,sender,reply) => {
+  if (message.type === 'stage-factori-catalog' && sender.id === chrome.runtime.id) {
+    stagedCatalogBatch = message.batch || null;
+    reply({ok: true, count: stagedCatalogBatch?.cards?.length || 0});
+    return false;
+  }
   if (sender.url !== 'http://127.0.0.1:8765/' && !sender.url?.startsWith('http://127.0.0.1:8765/#')) return;
+  if (message.type === 'get-factori-catalog') {
+    reply({value: stagedCatalogBatch});
+    return false;
+  }
   if (!['store-details','store-photo'].includes(message.type)) return;
   const task = message.type === 'store-details' ? readStore(message.url) : readPhoto(message.url);
   task.then(value=>reply({value}),error=>reply({error:error.message}));

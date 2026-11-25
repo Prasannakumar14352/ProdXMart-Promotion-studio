@@ -1,0 +1,63 @@
+# ProdXMart Promotion Studio — Test Report
+
+## Baseline (Pre-Redesign, Commit `1a6410f`)
+- Python test suite (`test_agents.py`, `test_catalog_agent.py`, `test_marketing_agent.py`, `test_video_qa.py`, `test_social_approval.py`, `test_product_editor.py`, `test_reel_remake.py`): **35/35 passed**
+- Node Factori Bridge suite (`test_factori_details.cjs`, `test_factori_pagination.cjs`): **11/11 passed**
+- JS syntax checks (`node --check`): **All passed**
+
+## Phase 1: Design System, App Shell & Business Overview Dashboard
+- **Python Test Suite** (`test_agents.py`, `test_catalog_agent.py`, `test_marketing_agent.py`, `test_video_qa.py`, `test_social_approval.py`, `test_product_editor.py`, `test_reel_remake.py`): **35/35 passed** in 166.639s (includes updated HTTP assertions for `/`, `/css/*`, `/js/*`, `/vendor/*`, `/api/overview`).
+- **Node Factori Bridge Suite** (`test_factori_details.cjs`, `test_factori_pagination.cjs`): **11/11 passed** (6 + 5 subtests).
+- **JS Syntax Verification** (`node --check js/ui_core.js`, `js/overview.js`, `ui.js`, `editor.js`, `agents.js`): **5/5 passed** (0 syntax errors).
+- **Live HTTP Verification**: Verified `200 OK` for `/`, `/api/overview?mode=demo&range=month`, `/api/overview?mode=store&range=month`, `/css/tokens.css`, `/css/components.css`, `/css/layout.css`, `/js/ui_core.js`, `/js/overview.js`, `/vendor/lucide.min.js`, `/vendor/chart.umd.min.js`.
+- **Browser QA Limitation**: Chrome DevTools MCP reported `Could not find DevToolsActivePort`; visual browser verification requires enabling remote debugging (`chrome://inspect/#remote-debugging`).
+
+## Phase 2: Product Catalogue & Product Editor Enhancements
+- **Implemented**: Summary KPI strip (Total, Promotion-ready, Out of stock, Missing images, Needs attention with click-to-filter), multi-criteria filters (search, readiness, category, stock, margin, sort, reset), Table/Grid toggle, pagination (`12/24/50` per page), bulk selection & Campaign pre-selection, upgraded Factori card/batch access, multi-photo reorder (`←` / `→` / `Set cover`), photo lightbox preview, and backend `photo_order` + `/state` `cost`/`fees`/`media_ok` support.
+- **Python Test Suite** (`test_product_editor.py`, `test_catalog_agent.py`, `test_agents.py`): **24/24 passed** in 18.692s (includes `test_photo_order_and_positive_margin_eligibility`).
+- **JS Syntax Check** (`node --check editor.js`): **Passed**.
+- **Live HTTP `/state` Verification**: Confirmed `/state?mode=demo` exposes `cost`, `fees`, `media_ok`, `margin`, `photo_count`, `stock`, `issues` accurately.
+
+## Phase 3: AI Agent Command Center, Integrations Center, Execution History & Settings
+- **Implemented**: Route-scoped sub-views inside `#agents` (Agents Pipeline & Roster, Integrations Center, Execution History & Error Logs, 7-Tab Settings UI), `/api/system/integrations` backend endpoint exposing live Ollama, FFmpeg, Factori Bridge, Meta/YouTube credentials mask status, Factori API 14-point checklist (`FACTORI_API_CHECKLIST.md`), and SQLite database table counts/size diagnostics without exposing secrets, plus history search/status filters and JSON export.
+- **Python Test Suite** (`test_agents.py`): **9/9 passed** in 18.385s (includes assertions for `/js/agent_views.js`, `/api/system/integrations`, checklist status, and no secret leakage).
+- **JS Syntax Verification** (`node --check js/agent_views.js`, `js/ui_core.js`, `agents.js`): **3/3 passed**.
+
+## Phase 4: Campaign Management & Professional Video Promotion Studio
+- **Implemented**: 6-Step Campaign Builder Wizard (`#campaign-wizard`), Campaign Cards with derived workflow state machine badges (`Script Ready`, `Reel Drafts Created`, `Video & QA Ready`, `Approved`, `Published`), 3-Panel Video Studio Workspace (`Media & Storyboard` left panel, `9:16 Vertical Stage` center preview player, `Production Settings` right panel), synchronized multi-track bottom timeline (`Scenes`, `Captions`, `Voiceover`, `Music` with ducking indicator), and preserved FFprobe + Human Review QA workflows.
+- **Python Test Suite** (`test_agents.py`, `test_marketing_agent.py`): **12/12 passed** in 25.356s (includes assertions for `/js/phase4_studio.js`, `#campaign-wizard`, and `#vid-studio-workspace`).
+- **JS Syntax Verification** (`node --check js/phase4_studio.js`, `agents.js`, `js/ui_core.js`): **3/3 passed**.
+
+## Phase 5: Approval Center & Publishing Calendar
+- **Implemented**: Approval Center summary KPI strip (`#approval-summary-strip`), live catalog price/stock & readiness verification strip per post (`pub-verify-strip`), mandatory human rejection reason enforcement, unified IST (`Asia/Kolkata`) Publishing Calendar (`#pub-cal-grid`) with Monthly/Weekly/Daily views merging Social Posts & Reel Queue jobs, platform/status filters, detail popover, global publishing stop mirror, and preserved batch Reel Queue card workflow.
+- **Python Test Suite** (`test_agents.py`, `test_social_approval.py`): **12/12 passed** in 51.726s (includes assertions for `/js/phase5_publishing.js`, `#pub-cal-grid`, `#approval-summary-strip`).
+- **JS Syntax Verification** (`node --check js/phase5_publishing.js`, `agents.js`, `ui.js`, `js/ui_core.js`): **4/4 passed**.
+
+## Phase 6: Sales Analytics & Expenses/Profit Management
+- **Implemented**: Zero-dependency OOXML Excel reader/writer (`agents/excel_io.py`), Sales Analytics & Financial Reconciliation module (`agents/sales_analytics.py`), SQLite `bank_settlements` table & ledger (`agents/storage.py`), backend endpoints (`/api/analytics`, `/api/analytics/export.xlsx`, `/api/analytics/export.csv`, `/api/analytics/import`, `/api/expenses`, `/api/settlements`), multi-filter Sales Analytics UI with Chart.js revenue/expenses/profit chart, SKU profitability & return-risk table, strict ROAS attribution gate, Promotion Recommendations, and dedicated Expenses & Bank Settlements reconciliation screen (`js/phase6_analytics.js`).
+- **Python Test Suite** (`test_sales_analytics.py`, `test_agents.py`): **11/11 passed** in 13.245s (verified exact reconciliation with `engine.earnings(mode)`, duplicate order-line prevention, bank settlement exclusion from revenue, honest `None` ROAS without attributable spend/revenue, and `.xlsx` export/import roundtrip).
+- **JS Syntax Verification** (`node --check js/ui_core.js`, `js/phase6_analytics.js`, `js/agent_views.js`, `ui.js`): **4/4 passed**.
+
+## Phase 7: End-to-End Integration & Final Full Regression
+- **Python Full Test Suite** (`test_agents.py`, `test_catalog_agent.py`, `test_marketing_agent.py`, `test_product_editor.py`, `test_reel_remake.py`, `test_sales_analytics.py`, `test_social_approval.py`, `test_video_qa.py`): **38/38 passed** in 152.095s (`OK`).
+- **Node Factori Bridge Full Suite** (`test_factori_details.cjs`, `test_factori_pagination.cjs`): **11/11 passed** (6 + 5 subtests).
+- **JS Syntax Verification (`node --check`)**: All 9 scripts passed (`ui.js`, `editor.js`, `agents.js`, `js/ui_core.js`, `js/overview.js`, `js/agent_views.js`, `js/phase4_studio.js`, `js/phase5_publishing.js`, `js/phase6_analytics.js`).
+- **Live HTTP Endpoint & Workspace Isolation Verification**: All 24 routes returned `200 OK` (`/`, all CSS/JS/vendor assets, `/state?mode=demo`, `/state?mode=store`, `/api/overview`, `/api/system/integrations`, `/api/analytics`, `/api/analytics/export.xlsx`, `/api/analytics/export.csv`); verified `demo` vs `store` isolation and presence of all 12 navigation routes.
+- **Browser Visual QA Limitation**: Chrome DevTools MCP reported `Could not find DevToolsActivePort` at `C:\Users\PrasannaKumarS\AppData\Local\Google\Chrome\User Data\DevToolsActivePort`; visual screenshot capture in live Chrome requires enabling remote debugging (`chrome://inspect/#remote-debugging`).
+
+## Complete Application Audit, UI/UX Refinement & Functional Fixes (`feature/audit-refinement`)
+- **Python Full Regression Suite**: **38/38 passed** in `103.595s` (`OK`), including `break_even_roas` & `max_cpa` math checks in `test_sales_analytics.py`.
+- **Node Factori Bridge Full Suite**: **11/11 passed** (`test_factori_details.cjs` 6/6 in `26.69ms`, `test_factori_pagination.cjs` 5/5 in `40.79ms`).
+- **JS Syntax Verification (`node --check`)**: **9/9 passed** across all frontend JS scripts.
+- **Headless Microsoft Edge Visual & Responsive Verification**:
+  - Captured and visually inspected `before_overview_1440.png` and 16 `after_*.png` screenshots across **all 12 routes** (`overview`, `catalogue`, `agents`, `campaigns`, `video`, `approvals`, `calendar`, `analytics`, `expenses`, `integrations`, `history`, `settings`), both workspaces (`demo` and `store`), and multiple desktop/tablet viewports (`1920x1080`, `1440x900`, `1366x768`, `1280x720`, `768x1024`).
+  - Confirmed zero text-overlap on global search, 6-card symmetric KPI grid, clean empty states, uniform `36px`/`30px` button alignment, top-right action bars, masked `.picker` file inputs, clean long-path wrapping in Integrations, and zero horizontal clipping on `Recommended products`.
+- **Known Limitations**:
+  - Interactive Chrome DevTools DOM console event clicking remains blocked until Chrome remote debugging (`DevToolsActivePort`) is enabled in the user's Chrome session; visual inspection was performed via Microsoft Edge headless screenshot rendering.
+  - `edit_file` permission on `test_social_approval.py` was declined during this pass, so the new `POST /agents/social/request-changes` backend handler is verified via code inspection + syntax/import checks in the suite while existing `test_social_approval.py` remains untouched and passing (`3/3`).
+
+## Optional Factori API Architecture & Independent Workflows (`feature/audit-refinement`)
+- **Python Full Regression Suite**: **39/39 passed** in `193.728s` (`OK`), including `test_full_platform_workflow_without_official_factori_api` (`test_factori_optional.py`) proving end-to-end execution of all 8 orchestrator agents, `.xlsx`/CSV catalogue & financial imports (`orders`, `bank_settlements` auto-detect), ₹35 positive unit-margin preservation, Integrations readiness + 6 freshness indicators, stale stock/price publishing gate enforcement, and non-blocking `FactoriApiAdapter`.
+- **Node Factori Bridge Full Suite**: **11/11 passed** (`test_factori_details.cjs` 6/6 in `185.5024ms`, `test_factori_pagination.cjs` 5/5 in `29.3177ms`).
+- **JS Syntax Verification (`node --check`)**: **9/9 passed** (`ui.js`, `editor.js`, `agents.js`, `js/ui_core.js`, `js/overview.js`, `js/agent_views.js`, `js/phase4_studio.js`, `js/phase5_publishing.js`, `js/phase6_analytics.js`).
+- **Headless Microsoft Edge Visual Verification**: Inspected `after_integrations_v2_1440.png` and `after_catalogue_v2_1440.png` at `1440x900`, confirming calm `Optional — Pending Access` status for Official Factori API, expandable **Future Integration Requirements** checklist, CSV/Excel & Manual source cards, live Factori Bridge detection status, and all 6 freshness strip cards in Product Catalogue.

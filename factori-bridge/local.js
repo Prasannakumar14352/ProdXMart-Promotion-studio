@@ -5,7 +5,7 @@ if (location.origin === 'http://127.0.0.1:8765' && location.pathname === '/') {
   window.addEventListener('message', async event => {
     const request = event.data;
     if (event.source !== window || event.origin !== location.origin || request?.readerId !== bridgeId ||
-        !['store-details','store-photo'].includes(request.type)) return;
+        !['store-details','store-photo','get-factori-catalog'].includes(request.type)) return;
     let result;
     try {
       const runtime = globalThis.chrome?.runtime;
