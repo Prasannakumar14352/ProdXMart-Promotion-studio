@@ -160,9 +160,9 @@ class OllamaClient:
         path_prefix = parsed.path.rstrip('/')
         endpoint = f'{path_prefix}/api/generate'
 
-        # Use a short socket read timeout so cancellation is checked regularly while waiting for tokens.
-        poll_timeout = min(1.5, self.timeout_seconds)
-        conn = conn_cls(parsed.hostname, port, timeout=poll_timeout)
+        # Cold model startup can exceed 1.5 seconds. Buffered streams cannot resume
+        # reliably after a read timeout, so use the configured socket timeout.
+        conn = conn_cls(parsed.hostname, port, timeout=self.timeout_seconds)
         deadline = time.monotonic() + self.timeout_seconds
         chunks: list[str] = []
         last_meta: dict[str, Any] = {}
@@ -194,8 +194,10 @@ class OllamaClient:
                     )
                 try:
                     raw_line = res.readline()
-                except socket.timeout:
-                    continue
+                except socket.timeout as exc:
+                    if cancel_event and cancel_event.is_set():
+                        raise AgentCancelledError('Execution stopped during Ollama generation.') from exc
+                    raise OllamaError(f'Ollama response timed out for model "{target_model}".', retryable=True) from exc
                 if not raw_line:
                     break
                 line = raw_line.decode('utf-8', errors='replace').strip()
@@ -219,6 +221,8 @@ class OllamaClient:
             if cancel_event and cancel_event.is_set():
                 raise AgentCancelledError('Execution stopped during Ollama generation.')
 
+            if not last_meta.get('done'):
+                raise OllamaError('Ollama stream ended before generation completed.', retryable=True)
             text = ''.join(chunks).strip()
             if not text:
                 raise OllamaError(f'Ollama returned an empty response for model "{target_model}".', retryable=True)
@@ -233,6 +237,8 @@ class OllamaClient:
         except OllamaError:
             raise
         except (OSError, TimeoutError, http.client.HTTPException) as exc:
+            if cancel_event and cancel_event.is_set():
+                raise AgentCancelledError('Execution stopped during Ollama generation.') from exc
             raise OllamaError(f'Could not communicate with Ollama at {self.base_url}: {exc}', retryable=True) from exc
         finally:
             try:

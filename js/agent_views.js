@@ -155,7 +155,8 @@
         ],
         actionLabel: 'Manage Credentials',
         onAction: () => {
-          window.StudioUI?.navigate('approvals');
+          window.StudioUI?.navigate('settings');
+          switchSettingsTab('social');
           const box = document.getElementById('social-creds-box');
           if (box) { box.open = true; box.scrollIntoView({ behavior: 'smooth' }); }
         },
@@ -171,7 +172,8 @@
         ],
         actionLabel: 'Configure Token',
         onAction: () => {
-          window.StudioUI?.navigate('approvals');
+          window.StudioUI?.navigate('settings');
+          switchSettingsTab('social');
           const box = document.getElementById('social-creds-box');
           if (box) { box.open = true; box.scrollIntoView({ behavior: 'smooth' }); }
         },
@@ -289,7 +291,8 @@
       const credsBtn = makeEl('button', 'Open Encrypted Social Credentials');
       credsBtn.type = 'button';
       credsBtn.onclick = () => {
-        window.StudioUI?.navigate('approvals');
+        window.StudioUI?.navigate('settings');
+        switchSettingsTab('social');
         const box = document.getElementById('social-creds-box');
         if (box) { box.open = true; box.scrollIntoView({ behavior: 'smooth' }); }
       };
@@ -329,6 +332,13 @@
       dataBox.append(statsGrid, exportBtn);
     }
   }
+
+  document.getElementById('open-social-accounts')?.addEventListener('click', () => {
+    window.StudioUI?.navigate('settings');
+    switchSettingsTab('social');
+    const box = document.getElementById('social-creds-box');
+    if (box) box.open = true;
+  });
 
   function switchSettingsTab(tabKey) {
     activeSettingsTab = tabKey || 'general';

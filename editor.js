@@ -470,6 +470,7 @@ async function openEditor(sku, imported){
     editing=p;form.reset();$('#photo-status').textContent='';$('#form-error').textContent='';$('#form-title').textContent=p?'Edit product':'Add product';
     $('#categories').replaceChildren(...[...new Set((state?.products||[]).map(x=>x.category))].map(c=>element('option',c)));
     if(p)for(const k of ['product_url','sku','name','category','price','cost','fees','stock','feature_te'])form.elements[k].value=p[k];
+    form.elements.auto_promote.checked=!p;
     form.elements.sku.readOnly=!!p;form.elements.media_ok.checked=p?.media_ok?.toLowerCase()==='yes';
     selection=(p?.photos||[]).map((name,index)=>({name,preview:'/photo?'+new URLSearchParams({mode:'store',sku,index})}));
     if(imported){
@@ -643,6 +644,9 @@ form.onsubmit=async e=>{
     const links=$('#image-links').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     if(links.length+selection.length>6 && (links.length || selection.some(x=>x.file)))throw Error('Keep up to six photos in total.');
     const d=Object.fromEntries(new FormData(form));d.mode='store';d.version=editing?.version||'';d.media_ok=form.elements.media_ok.checked;
+    d.auto_promote=form.elements.auto_promote.checked;
+    d.promotion_platforms=Array.from(form.querySelectorAll('[name="promotion_platform"]:checked'), input=>input.value);
+    if(d.auto_promote && !d.promotion_platforms.length)throw Error('Select at least one promotion platform.');
     d.keep=selection.filter(x=>!x.file).map(x=>x.name);
     d.new=[...await Promise.all(selection.filter(x=>x.file).map(x=>encoded(x.file))),...links.map(url=>({url}))];
     let nextNewIdx = 0;

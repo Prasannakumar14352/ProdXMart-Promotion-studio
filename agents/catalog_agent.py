@@ -241,6 +241,7 @@ class CatalogAgent(BaseAgent):
             rec = deduped_items[key]
             base_sku_counts[rec.sku.upper()] = base_sku_counts.get(rec.sku.upper(), 0) + 1
 
+        saved_skus = []
         imported_products = 0
         updated_products = 0
         unchanged_or_skipped = 0
@@ -484,6 +485,7 @@ class CatalogAgent(BaseAgent):
                     try:
                         product_editor.save(save_payload)
                         if existing_details is None:
+                            saved_skus.append(target_sku)
                             imported_products += 1
                         else:
                             updated_products += 1
@@ -583,6 +585,6 @@ class CatalogAgent(BaseAgent):
                 f"Synced {stats['total_products']} products across {pages_scanned} page(s): "
                 f"{imported_products} imported, {updated_products} updated, {failed_products} failed, {missing_images_products} missing images."
             ),
-            data={'stats': stats, 'diagnostics': diagnostics},
+            data={'stats': stats, 'diagnostics': diagnostics, 'saved_skus': saved_skus},
             model_used='local-deterministic',
         )

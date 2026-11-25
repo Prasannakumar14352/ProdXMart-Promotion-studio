@@ -268,7 +268,24 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(photo_bytes({'url':data['url']}),'image/jpeg')
             if self.path=='/product':
                 if mode!='store':raise ValueError('Switch to My store to edit products.')
+                from agents.promotion_workflow import validate_preferences
+                requested = data.get('auto_promote')
+                if requested is True:
+                    language, duration, platforms = validate_preferences(
+                        data.get('promotion_language', 'en'), data.get('promotion_duration', 30),
+                        data.get('promotion_platforms', ['instagram_reels','facebook_reels','youtube_shorts']))
                 msg=save(data)
+                if requested is True:
+                    try:
+                        orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                        queued = orch.enqueue_product_promotion(str(data['sku']).strip(), language=language,
+                            duration_seconds=duration, platforms=platforms)
+                        run = queued['run']
+                        state = 'Existing promotion job' if queued['already_exists'] else 'Promotion queued'
+                        return self.respond({'message': f"{msg} {state}: {run['status']} ({run['id']}). Review in AI Agent Center.",
+                                             'promotion_run':run})
+                    except Exception as exc:
+                        return self.respond({'message': f'{msg} Promotion not queued: {exc}', 'promotion_warning':str(exc)})
             elif self.path=='/generate':msg=batch(mode)
             elif self.path=='/remake':msg=remake(mode,data['id'])
             elif self.path=='/decide':msg=decide(mode,data['action'],data['ids'],data.get('start',''))

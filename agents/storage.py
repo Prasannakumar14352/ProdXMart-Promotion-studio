@@ -11,7 +11,7 @@ import uuid
 import engine
 from agents.ollama_client import DEFAULT_MODEL, DEFAULT_OLLAMA_URL, normalize_ollama_url
 
-ALLOWED_EXECUTION_MODES = ('manual',)
+ALLOWED_EXECUTION_MODES = ('manual', 'auto_prepare')
 TERMINAL_STATUSES = ('succeeded', 'failed', 'cancelled')
 ACTIVE_STATUSES = ('queued', 'running')
 
@@ -297,7 +297,7 @@ class AgentStorage:
             raise ValueError('Default model cannot be empty.')
         execution_mode = str(updates.get('execution_mode', current['execution_mode']) or 'manual').strip().lower()
         if execution_mode not in ALLOWED_EXECUTION_MODES:
-            raise ValueError('Phase 1 supports manual execution mode only.')
+            raise ValueError('Choose manual or auto_prepare execution mode.')
         try:
             max_retries = int(updates.get('max_retries', current['max_retries']))
             retry_delay = float(updates.get('retry_delay_seconds', current['retry_delay_seconds']))
