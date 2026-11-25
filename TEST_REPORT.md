@@ -33,4 +33,9 @@
 - **Python Test Suite** (`test_agents.py`, `test_social_approval.py`): **12/12 passed** in 51.726s (includes assertions for `/js/phase5_publishing.js`, `#pub-cal-grid`, `#approval-summary-strip`).
 - **JS Syntax Verification** (`node --check js/phase5_publishing.js`, `agents.js`, `ui.js`, `js/ui_core.js`): **4/4 passed**.
 
+## Phase 6: Sales Analytics & Expenses/Profit Management
+- **Implemented**: Zero-dependency OOXML Excel reader/writer (`agents/excel_io.py`), Sales Analytics & Financial Reconciliation module (`agents/sales_analytics.py`), SQLite `bank_settlements` table & ledger (`agents/storage.py`), backend endpoints (`/api/analytics`, `/api/analytics/export.xlsx`, `/api/analytics/export.csv`, `/api/analytics/import`, `/api/expenses`, `/api/settlements`), multi-filter Sales Analytics UI with Chart.js revenue/expenses/profit chart, SKU profitability & return-risk table, strict ROAS attribution gate, Promotion Recommendations, and dedicated Expenses & Bank Settlements reconciliation screen (`js/phase6_analytics.js`).
+- **Python Test Suite** (`test_sales_analytics.py`, `test_agents.py`): **11/11 passed** in 13.245s (verified exact reconciliation with `engine.earnings(mode)`, duplicate order-line prevention, bank settlement exclusion from revenue, honest `None` ROAS without attributable spend/revenue, and `.xlsx` export/import roundtrip).
+- **JS Syntax Verification** (`node --check js/ui_core.js`, `js/phase6_analytics.js`, `js/agent_views.js`, `ui.js`): **4/4 passed**.
+
 _(Subsequent phases will append verification results below.)_

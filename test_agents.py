@@ -381,7 +381,7 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertIn('refreshAgents', agents_js)
 
-        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/js/agent_views.js', '/js/phase4_studio.js', '/js/phase5_publishing.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
+        for asset_path in ('/css/tokens.css', '/css/components.css', '/css/layout.css', '/js/ui_core.js', '/js/overview.js', '/js/agent_views.js', '/js/phase4_studio.js', '/js/phase5_publishing.js', '/js/phase6_analytics.js', '/vendor/lucide.min.js', '/vendor/chart.umd.min.js'):
             acode, _ = invoke_handler('GET', asset_path, orchestrator=orch, decode=False)
             self.assertEqual(acode, 200, f'Failed to serve {asset_path}')
 

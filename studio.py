@@ -29,6 +29,13 @@ from agents.social_agent import (
     reject_social_post,
     schedule_social_post,
 )
+from agents.sales_analytics import (
+    add_expense_entry,
+    build_sales_analytics,
+    export_analytics_csv,
+    export_analytics_workbook,
+    import_financial_upload,
+)
 
 ASSETS={
     '/':('index.html','text/html'),
@@ -44,6 +51,7 @@ ASSETS={
     '/js/agent_views.js':('js/agent_views.js','text/javascript'),
     '/js/phase4_studio.js':('js/phase4_studio.js','text/javascript'),
     '/js/phase5_publishing.js':('js/phase5_publishing.js','text/javascript'),
+    '/js/phase6_analytics.js':('js/phase6_analytics.js','text/javascript'),
     '/vendor/lucide.min.js':('assets/vendor/lucide.min.js','text/javascript'),
     '/vendor/chart.umd.min.js':('assets/vendor/chart.umd.min.js','text/javascript'),
 }
@@ -111,6 +119,37 @@ class Handler(BaseHTTPRequestHandler):
                 params=parse_qs(u.query)
                 mode=params.get('mode',['store'])[0];directory(mode)
                 return self.respond(build_system_integrations_payload(orch, mode=mode))
+            if u.path=='/api/analytics':
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                params=parse_qs(u.query)
+                mode=params.get('mode',['store'])[0];directory(mode)
+                return self.respond(build_sales_analytics(
+                    mode,
+                    category=params.get('category',[''])[0],
+                    sku=params.get('sku',[''])[0],
+                    campaign=params.get('campaign',[''])[0],
+                    return_only=params.get('return_only',[''])[0].lower() in ('1','true','yes'),
+                    storage=orch.storage,
+                ))
+            if u.path=='/api/analytics/export.xlsx':
+                params=parse_qs(u.query)
+                mode=params.get('mode',['store'])[0];directory(mode)
+                body=export_analytics_workbook(mode)
+                return self.respond(
+                    body,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition':f'attachment; filename="prodxmart-analytics-{mode}.xlsx"'},
+                )
+            if u.path=='/api/analytics/export.csv':
+                params=parse_qs(u.query)
+                mode=params.get('mode',['store'])[0];directory(mode)
+                kind=params.get('kind',['sku'])[0]
+                csv_text, fname = export_analytics_csv(mode, kind=kind)
+                return self.respond(
+                    csv_text,
+                    'text/csv; charset=utf-8',
+                    headers={'Content-Disposition':f'attachment; filename="{fname}"'},
+                )
             if u.path=='/state':
                 mode=parse_qs(u.query).get('mode',['demo'])[0]
                 with closing(db()) as c:
@@ -217,7 +256,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond({'error':'Open the dashboard locally.'},code=403)
         try:
             n=int(self.headers.get('Content-Length',0))
-            limit=44*1024*1024 if self.path=='/product' else (8*1024*1024 if self.path in ('/agents/catalog/stage','/agents/run') else 25000)
+            limit=44*1024*1024 if self.path=='/product' else (8*1024*1024 if self.path in ('/agents/catalog/stage','/agents/run','/api/analytics/import') else 25000)
             if not 0<n<limit:raise ValueError('Invalid request.')
             data=json.loads(self.rfile.read(n))
             mode=data.get('mode','store') if self.path.startswith('/agents/') else data['mode']
@@ -379,6 +418,36 @@ class Handler(BaseHTTPRequestHandler):
                 for k, v in creds.items():
                     store.set_credential(str(k), str(v or ''))
                 return self.respond({'message':'Credentials encrypted and saved.','credentials':store.list_status()})
+            elif self.path=='/api/analytics/import':
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                summary = import_financial_upload(
+                    mode,
+                    filename=str(data.get('filename','')),
+                    csv_text=str(data.get('csv_text','')),
+                    base64_data=str(data.get('base64','')),
+                    target=str(data.get('target','auto')),
+                    storage=orch.storage,
+                )
+                return self.respond({'message':f"Imported {summary['imported_orders']} order(s), {summary['imported_expenses']} expense(s), {summary['imported_settlements']} settlement(s).",'summary':summary})
+            elif self.path=='/api/expenses':
+                saved = add_expense_entry(
+                    mode,
+                    reference=str(data.get('reference','')),
+                    expense_type=str(data.get('type','')),
+                    amount_val=data.get('amount',''),
+                )
+                return self.respond({'message':f"Recorded expense {saved['reference']}.",'expense':saved})
+            elif self.path=='/api/settlements':
+                if mode!='store':raise ValueError('Switch to My store to record bank settlements.')
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                saved = orch.storage.add_bank_settlement(
+                    mode=mode,
+                    reference=str(data.get('reference','')),
+                    settled_at=str(data.get('settled_at','')),
+                    amount=float(data.get('amount',0)),
+                    notes=str(data.get('notes','')),
+                )
+                return self.respond({'message':f"Recorded bank settlement {saved['reference']} (excluded from revenue).",'settlement':saved})
             else:return self.respond({'error':'Unknown action'},code=404)
             return self.respond({'message':msg})
         except Exception as e:self.respond({'error':str(e)},code=400)

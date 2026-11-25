@@ -77,6 +77,7 @@ async function refresh() {
   if (typeof window.refreshOverview === 'function') window.refreshOverview().catch(() => {});
   if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
   if (typeof window.refreshPublishingCalendar === 'function') window.refreshPublishingCalendar();
+  if (typeof window.refreshSalesAnalytics === 'function') window.refreshSalesAnalytics().catch(() => {});
 }
 async function post(path, data) {
   if (busy) return; busy = true; document.body.setAttribute('aria-busy', 'true'); $('#mode').disabled = true; $('#generate').disabled = true;

@@ -338,10 +338,85 @@
       </section>
 
       <section id="report" hidden>
-        <div id="metrics" class="metrics"></div>
-        <h2>Sales by campaign</h2>
-        <p>Campaigns without an order match appear as unattributed.</p>
-        <div id="campaigns"></div>
+        <div id="analytics-view" data-reportview="analytics">
+          <div class="card" style="padding:16px 18px;margin-bottom:16px">
+            <div class="agent-panel-head">
+              <div>
+                <h2>Sales Analytics &amp; Attribution</h2>
+                <p class="hint">Reconciled directly with local order lines and expenses. Returns/refunds are deducted from net sales and bank settlements are excluded from revenue.</p>
+              </div>
+              <div class="agent-config-actions">
+                <a id="an-export-xlsx" class="btn-ghost" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;font-size:13px" href="/api/analytics/export.xlsx?mode=store">Export Excel (.xlsx)</a>
+                <a id="an-export-csv" class="btn-ghost" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;font-size:13px" href="/api/analytics/export.csv?mode=store&amp;kind=sku">Export SKUs (.csv)</a>
+                <label class="picker" style="margin:0;padding:7px 12px">Import .xlsx / .csv<input type="file" id="an-import-file" accept=".xlsx,.csv,text/csv"></label>
+              </div>
+            </div>
+            <div class="cat-toolbar" style="margin-top:12px">
+              <label><span class="sr">Filter SKU</span><input type="search" id="an-filter-sku" placeholder="Search SKU or product…"></label>
+              <label><span class="sr">Filter Category</span><select id="an-filter-cat"><option value="">All categories</option></select></label>
+              <label><span class="sr">Filter Campaign</span><select id="an-filter-camp"><option value="">All campaigns</option></select></label>
+              <label class="qa-chk-label"><input type="checkbox" id="an-filter-returns"> Only SKUs with returns</label>
+              <button type="button" id="an-filter-reset">Reset</button>
+              <span id="an-reconcile-badge" class="badge">Checking reconciliation…</span>
+            </div>
+          </div>
+
+          <div id="metrics" class="metrics"></div>
+          <div id="an-kpis-extra" class="catalog-stats" style="margin-bottom:16px"></div>
+
+          <div class="grid-2-1">
+            <div class="card">
+              <div class="card-head"><div><h2 class="card-title">Revenue, Expenses &amp; Operating Profit Breakdown</h2><p class="card-sub">Gross sales, refunds, COGS/fees, ad spend, other expenses, and net operating profit</p></div></div>
+              <div class="chart-box"><canvas id="an-profit-chart"></canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><h2 class="card-title">Promotion &amp; Return Insights</h2><p class="card-sub">Grounded recommendations for Sales &amp; Marketing agents</p></div></div>
+              <div id="an-recommendations"></div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-head"><div><h2 class="card-title">SKU Profitability &amp; Return Analysis</h2><p class="card-sub">Net sales, product costs, fees, contribution, and return-rate flags</p></div></div>
+            <div id="an-sku-table"></div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-head"><div><h2 class="card-title">Sales &amp; Traffic by Campaign</h2><p class="card-sub">Campaigns without an order match appear as unattributed. ROAS is shown only when attributable revenue and ad spend both exist.</p></div></div>
+            <div id="campaigns"></div>
+          </div>
+        </div>
+
+        <div id="expenses-view" data-reportview="expenses" hidden>
+          <div class="agent-banner" role="note">
+            <strong>Accounting Integrity Rule:</strong> Operating profit deducts order-line COGS/fees and deduplicated <code>expenses.csv</code> spend once. Bank settlements are tracked separately below and are <strong>never</strong> counted as additional revenue.
+          </div>
+
+          <div id="exp-summary-cards" class="catalog-stats" style="margin-bottom:16px"></div>
+
+          <div class="grid-1-1">
+            <div class="card">
+              <div class="card-head"><div><h2 class="card-title">Expense Ledger (expenses.csv)</h2><p class="card-sub">Deduplicated by unique reference ID</p></div></div>
+              <div id="exp-add-box" class="agent-config-grid" style="margin-bottom:12px">
+                <label>Reference ID<input type="text" id="exp-ref" placeholder="e.g. AD-2026-11"></label>
+                <label>Expense Type<select id="exp-type"><option value="Advertising">Advertising</option><option value="Packaging">Packaging</option><option value="Shipping">Shipping</option><option value="Software">Software</option><option value="Other">Other</option></select></label>
+                <label>Amount (₹)<input type="number" id="exp-amount" step="0.01" min="0" placeholder="0.00"></label>
+                <div style="display:flex;align-items:flex-end"><button type="button" id="exp-add-btn" class="primary">Record Expense</button></div>
+              </div>
+              <div id="exp-ledger-table"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div><h2 class="card-title">Bank Settlements Reconciliation</h2><p class="card-sub">Cash payouts reconciled against net sales (excluded from revenue)</p></div></div>
+              <div id="settle-add-box" class="agent-config-grid" style="margin-bottom:12px">
+                <label>Settlement Ref<input type="text" id="settle-ref" placeholder="e.g. UTR-98421"></label>
+                <label>Amount (₹)<input type="number" id="settle-amount" step="0.01" min="0" placeholder="0.00"></label>
+                <label>Notes<input type="text" id="settle-notes" placeholder="Bank payout batch"></label>
+                <div style="display:flex;align-items:flex-end"><button type="button" id="settle-add-btn" class="primary">Record Settlement</button></div>
+              </div>
+              <div id="settle-table"></div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="agents" hidden>
@@ -681,6 +756,7 @@
 <script src="/js/agent_views.js"></script>
 <script src="/js/phase4_studio.js"></script>
 <script src="/js/phase5_publishing.js"></script>
+<script src="/js/phase6_analytics.js"></script>
 <script src="/ui.js"></script>
 <script src="/editor.js"></script>
 <script src="/agents.js"></script>

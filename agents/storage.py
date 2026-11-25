@@ -230,6 +230,18 @@ class AgentStorage:
         )
         con.execute('CREATE INDEX IF NOT EXISTS idx_social_mode_status ON social_posts(mode, status, updated_at DESC)')
         con.execute('CREATE INDEX IF NOT EXISTS idx_social_dedup ON social_posts(mode, platform, sku)')
+        con.execute(
+            '''CREATE TABLE IF NOT EXISTS bank_settlements (
+                id TEXT PRIMARY KEY,
+                mode TEXT NOT NULL,
+                reference TEXT NOT NULL,
+                settled_at TEXT NOT NULL,
+                amount REAL NOT NULL,
+                notes TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                UNIQUE(mode, reference)
+            )'''
+        )
 
     def ensure_defaults(self, agents: list[Any]) -> None:
         stamp = engine.now().isoformat()
@@ -1523,3 +1535,40 @@ class AgentStorage:
                 (error_message[:400], stamp, post_id, mode),
             )
         return self.get_social_post(post_id, mode=mode)
+
+    def add_bank_settlement(
+        self,
+        *,
+        mode: str,
+        reference: str,
+        settled_at: str,
+        amount: float,
+        notes: str = '',
+    ) -> dict[str, Any]:
+        ref = str(reference or '').strip()
+        if not ref:
+            raise ValueError('Settlement reference is required.')
+        val = float(amount)
+        if val < 0:
+            raise ValueError('Settlement amount must be nonnegative.')
+        sid = uuid.uuid4().hex[:12]
+        stamp = engine.now().isoformat()
+        with engine.LOCK, closing(self._connect()) as con, con:
+            dup = con.execute('SELECT id FROM bank_settlements WHERE mode=? AND reference=?', (mode, ref)).fetchone()
+            if dup:
+                raise ValueError(f'Settlement reference "{ref}" already recorded.')
+            con.execute(
+                '''INSERT INTO bank_settlements(id, mode, reference, settled_at, amount, notes, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                (sid, mode, ref, settled_at or stamp, val, str(notes or '')[:300], stamp),
+            )
+            row = con.execute('SELECT * FROM bank_settlements WHERE id=?', (sid,)).fetchone()
+        return dict(row)
+
+    def list_bank_settlements(self, *, mode: str, limit: int = 200) -> list[dict[str, Any]]:
+        with engine.LOCK, closing(self._connect()) as con:
+            rows = con.execute(
+                'SELECT * FROM bank_settlements WHERE mode=? ORDER BY settled_at DESC, created_at DESC LIMIT ?',
+                (mode, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]

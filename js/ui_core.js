@@ -116,10 +116,15 @@
       if (el) el.hidden = secId !== meta.section;
     });
 
-    // Toggle dedicated sub-views inside #agents so each navigation item is a focused screen.
+    // Toggle dedicated sub-views inside #agents and #report so each navigation item is a focused screen.
     if (meta.section === 'agents') {
       document.querySelectorAll('#agents [data-subview]').forEach(el => {
         el.hidden = el.dataset.subview !== targetRoute;
+      });
+    }
+    if (meta.section === 'report') {
+      document.querySelectorAll('#report [data-reportview]').forEach(el => {
+        el.hidden = el.dataset.reportview !== targetRoute;
       });
     }
 
@@ -139,6 +144,9 @@
     if (meta.section === 'queue' && typeof window.refreshPublishingCalendar === 'function') {
       if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});
       window.refreshPublishingCalendar();
+    }
+    if (meta.section === 'report' && typeof window.refreshSalesAnalytics === 'function') {
+      window.refreshSalesAnalytics(targetRoute).catch(() => {});
     }
     if (meta.section === 'agents') {
       if (typeof window.refreshAgents === 'function') window.refreshAgents().catch(() => {});

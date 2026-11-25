@@ -35,13 +35,13 @@
       { id: 'video_agent', label: '6. Video Production', route: 'video' },
       { id: 'qa_agent', label: '7. QA Gate', route: 'video' },
       { id: 'social_agent', label: '8. Approval & Package', route: 'approvals' },
-      { id: 'sales_analytics_planned', label: '9. Sales Ledger (Phase 6)', route: 'analytics', planned: true },
+      { id: 'sales_analytics', label: '9. Sales & Profit Ledger', route: 'analytics', ledger: true },
     ];
 
     host.replaceChildren();
     steps.forEach((step, idx) => {
       const a = byId.get(step.id);
-      const status = step.planned ? 'not_configured' : (!a ? 'not_configured' : (!a.enabled ? 'disabled' : (a.status || 'idle')));
+      const status = step.ledger ? 'ready' : (!a ? 'not_configured' : (!a.enabled ? 'disabled' : (a.status || 'idle')));
       const box = document.createElement('button');
       box.type = 'button';
       box.className = 'pipeline-step';
@@ -49,13 +49,13 @@
 
       const top = makeEl('div', '', 'meta');
       top.append(makeEl('strong', step.label));
-      const pill = makeEl('span', step.planned ? 'Scheduled' : status, badgeClass(status));
+      const pill = makeEl('span', step.ledger ? 'Active' : status, badgeClass(status));
       top.append(pill);
 
       const sub = makeEl(
         'small',
-        step.planned
-          ? 'Uses CSV analytics today; Phase 6 ledger UI next.'
+        step.ledger
+          ? 'Reconciled orders, expenses, settlements & Excel export.'
           : (a?.latest_run?.output?.summary || a?.effective_model || 'Ready for manual run'),
         'hint'
       );
