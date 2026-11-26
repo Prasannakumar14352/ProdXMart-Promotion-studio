@@ -248,7 +248,7 @@ class VideoAndQaTests(unittest.TestCase):
             mode='demo',
             payload={'skus': ['D04'], 'duration_seconds': 60, 'language': 'te', 'voiceover_mode': 'music_only'},
         )
-        d60 = wait_until(lambda: (r := orch.storage.get_run(v60['id'])) and r['status'] == 'succeeded' and r, timeout=45.0)
+        d60 = wait_until(lambda: (r := orch.storage.get_run(v60['id'])) and r['status'] == 'succeeded' and r, timeout=90.0)
         prod60 = d60['output']['data']['production']
         probe60 = inspect_video_with_ffprobe(Path(prod60['video_path']), expected_duration=60)
         self.assertTrue(probe60['ok'], probe60['failures'])

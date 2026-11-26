@@ -338,6 +338,463 @@
     hydrateIcons(document);
   }
 
+  const PLATFORMS = [
+    { id: 'instagram_reels', name: 'Instagram Reels', short: 'Instagram', color: '#E1306C' },
+    { id: 'facebook_reels', name: 'Facebook Reels', short: 'Facebook', color: '#1877F2' },
+    { id: 'youtube_shorts', name: 'YouTube Shorts', short: 'YouTube', color: '#FF0000' },
+  ];
+
+  function createSvgEl(tag, attrs, children) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+    for (const ch of (children || [])) el.append(ch);
+    return el;
+  }
+
+  function createPlatformIcon(platformId, size) {
+    const s = size || 16;
+    if (platformId === 'instagram_reels') {
+      return createSvgEl('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true', class: 'plat-svg plat-ig' }, [
+        createSvgEl('rect', { x: 2.5, y: 2.5, width: 19, height: 19, rx: 5.5, stroke: '#E1306C', 'stroke-width': 2.2 }),
+        createSvgEl('circle', { cx: 12, cy: 12, r: 4.2, stroke: '#E1306C', 'stroke-width': 2.1 }),
+        createSvgEl('circle', { cx: 17.3, cy: 6.7, r: 1.3, fill: '#E1306C' }),
+      ]);
+    }
+    if (platformId === 'facebook_reels') {
+      return createSvgEl('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true', class: 'plat-svg plat-fb' }, [
+        createSvgEl('circle', { cx: 12, cy: 12, r: 10, fill: '#1877F2' }),
+        createSvgEl('path', { d: 'M13.5 21.8v-7.6h2.5l.4-3h-2.9V9.3c0-.9.3-1.5 1.5-1.5h1.5V5.1c-.3 0-1.2-.1-2.3-.1-2.2 0-3.8 1.4-3.8 3.9v2.3H8v3h2.4v7.6h3.1z', fill: '#FFFFFF' }),
+      ]);
+    }
+    return createSvgEl('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': 'true', class: 'plat-svg plat-yt' }, [
+      createSvgEl('rect', { x: 2, y: 4.5, width: 20, height: 15, rx: 4.2, fill: '#FF0000' }),
+      createSvgEl('polygon', { points: '10,8.5 16.2,12 10,15.5', fill: '#FFFFFF' }),
+    ]);
+  }
+
+  function createPlatformMultiSelect(container, options) {
+    const host = typeof container === 'string' ? document.getElementById(container) : container;
+    if (!host) return null;
+    if (host.__pmPicker) return host.__pmPicker;
+
+    const opts = options || {};
+    const validIds = PLATFORMS.map(p => p.id);
+    let committed = (Array.isArray(opts.initialSelected) && opts.initialSelected.length)
+      ? opts.initialSelected.filter(v => validIds.includes(v))
+      : (opts.initialSelected && Array.isArray(opts.initialSelected) ? [] : [...validIds]);
+    let draft = [...committed];
+
+    const root = document.createElement('div');
+    root.className = 'pm-picker';
+    if (opts.id) root.id = opts.id;
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'pm-trigger';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', opts.ariaLabel || 'Select target social media platforms');
+
+    const iconGroup = document.createElement('span');
+    iconGroup.className = 'pm-icons';
+    const textSpan = document.createElement('span');
+    textSpan.className = 'pm-label';
+    const countBadge = document.createElement('span');
+    countBadge.className = 'pm-count';
+    const caret = document.createElement('span');
+    caret.className = 'pm-caret';
+    caret.textContent = '▾';
+    trigger.append(iconGroup, textSpan, countBadge, caret);
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'pm-dropdown';
+    dropdown.hidden = true;
+    dropdown.setAttribute('role', 'region');
+    dropdown.setAttribute('aria-label', opts.ariaLabel || 'Platform choices');
+
+    const topBar = document.createElement('div');
+    topBar.className = 'pm-actions-top';
+    const selAllBtn = document.createElement('button');
+    selAllBtn.type = 'button';
+    selAllBtn.className = 'btn-ghost btn-sm';
+    selAllBtn.textContent = 'Select All';
+    const clrAllBtn = document.createElement('button');
+    clrAllBtn.type = 'button';
+    clrAllBtn.className = 'btn-ghost btn-sm';
+    clrAllBtn.textContent = 'Clear All';
+    topBar.append(selAllBtn, clrAllBtn);
+
+    const listBox = document.createElement('div');
+    listBox.className = 'pm-options';
+    listBox.setAttribute('role', 'listbox');
+    listBox.setAttribute('aria-multiselectable', 'true');
+
+    const checkInputs = new Map();
+    const optionButtons = [];
+    for (const plat of PLATFORMS) {
+      const row = document.createElement('label');
+      row.className = 'pm-option';
+      row.setAttribute('role', 'option');
+      row.tabIndex = 0;
+
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.value = plat.id;
+      chk.tabIndex = -1;
+      checkInputs.set(plat.id, chk);
+
+      const iconWrap = document.createElement('span');
+      iconWrap.className = 'pm-opt-icon';
+      iconWrap.append(createPlatformIcon(plat.id, 16));
+
+      const lbl = document.createElement('span');
+      lbl.className = 'pm-opt-name';
+      lbl.textContent = plat.name;
+
+      row.append(chk, iconWrap, lbl);
+      listBox.append(row);
+      optionButtons.push(row);
+
+      chk.addEventListener('change', () => {
+        if (chk.checked) {
+          if (!draft.includes(plat.id)) draft.push(plat.id);
+        } else {
+          draft = draft.filter(v => v !== plat.id);
+        }
+        syncDraftUi();
+      });
+      row.addEventListener('keydown', e => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          chk.checked = !chk.checked;
+          chk.dispatchEvent(new Event('change'));
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const idx = optionButtons.indexOf(row);
+          if (idx < optionButtons.length - 1) optionButtons[idx + 1].focus();
+          else applyBtn.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const idx = optionButtons.indexOf(row);
+          if (idx > 0) optionButtons[idx - 1].focus();
+          else selAllBtn.focus();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeDropdown(true);
+        }
+      });
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'pm-footer';
+    const draftLabel = document.createElement('small');
+    draftLabel.className = 'hint';
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.className = 'btn-sm primary pm-apply';
+    applyBtn.textContent = 'Apply';
+    footer.append(draftLabel, applyBtn);
+
+    dropdown.append(topBar, listBox, footer);
+
+    const hiddenMirror = document.createElement('div');
+    hiddenMirror.hidden = true;
+    hiddenMirror.setAttribute('aria-hidden', 'true');
+    if (opts.syncHiddenName) {
+      for (const plat of PLATFORMS) {
+        const h = document.createElement('input');
+        h.type = 'checkbox';
+        h.name = opts.syncHiddenName;
+        h.value = plat.id;
+        hiddenMirror.append(h);
+      }
+    }
+
+    root.append(trigger, dropdown, hiddenMirror);
+    host.replaceChildren(root);
+
+    function syncTriggerUi() {
+      iconGroup.replaceChildren();
+      for (const id of committed) iconGroup.append(createPlatformIcon(id, 14));
+      if (committed.length === PLATFORMS.length) {
+        textSpan.textContent = 'All Platforms Selected';
+      } else if (committed.length === 0) {
+        textSpan.textContent = '0 platforms selected';
+      } else {
+        textSpan.textContent = `${committed.length} platform${committed.length === 1 ? '' : 's'} selected`;
+      }
+      countBadge.textContent = String(committed.length);
+      trigger.title = committed.length
+        ? committed.map(id => PLATFORMS.find(p => p.id === id)?.name || id).join(', ')
+        : 'No platforms selected';
+      if (opts.syncHiddenName) {
+        hiddenMirror.querySelectorAll('input[type="checkbox"]').forEach(el => {
+          el.checked = committed.includes(el.value);
+        });
+      }
+    }
+
+    function syncDraftUi() {
+      for (const plat of PLATFORMS) {
+        const chk = checkInputs.get(plat.id);
+        const checked = draft.includes(plat.id);
+        if (chk) chk.checked = checked;
+        chk?.closest('.pm-option')?.setAttribute('aria-selected', checked ? 'true' : 'false');
+      }
+      draftLabel.textContent = `${draft.length} of ${PLATFORMS.length} selected`;
+    }
+
+    function positionDropdown() {
+      dropdown.classList.remove('align-right', 'drop-up');
+      const rect = root.getBoundingClientRect();
+      const ddRect = dropdown.getBoundingClientRect();
+      if (rect.left + Math.max(250, ddRect.width) > window.innerWidth - 12) {
+        dropdown.classList.add('align-right');
+      }
+      if (rect.bottom + ddRect.height > window.innerHeight - 12 && rect.top > ddRect.height + 16) {
+        dropdown.classList.add('drop-up');
+      }
+    }
+
+    function openDropdown() {
+      draft = [...committed];
+      syncDraftUi();
+      dropdown.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      positionDropdown();
+    }
+
+    function closeDropdown(restoreFocus) {
+      if (dropdown.hidden) return;
+      dropdown.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) trigger.focus();
+    }
+
+    function applySelection() {
+      if (opts.minSelected && draft.length < opts.minSelected) {
+        showToast(`Select at least ${opts.minSelected} platform.`, true);
+        return;
+      }
+      committed = PLATFORMS.map(p => p.id).filter(id => draft.includes(id));
+      syncTriggerUi();
+      closeDropdown(true);
+      if (typeof opts.onApply === 'function') opts.onApply([...committed]);
+    }
+
+    trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      if (dropdown.hidden) openDropdown();
+      else closeDropdown(false);
+    });
+    trigger.addEventListener('keydown', e => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (dropdown.hidden) openDropdown();
+        optionButtons[0]?.focus();
+      } else if (e.key === 'Escape') {
+        closeDropdown(false);
+      }
+    });
+
+    selAllBtn.addEventListener('click', () => {
+      draft = [...validIds];
+      syncDraftUi();
+    });
+    clrAllBtn.addEventListener('click', () => {
+      draft = [];
+      syncDraftUi();
+    });
+    applyBtn.addEventListener('click', applySelection);
+    dropdown.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDropdown(true);
+      }
+    });
+    dropdown.addEventListener('click', e => e.stopPropagation());
+
+    document.addEventListener('click', e => {
+      if (!dropdown.hidden && !root.contains(e.target)) {
+        closeDropdown(false);
+      }
+    });
+
+    syncTriggerUi();
+    syncDraftUi();
+
+    const api = {
+      getSelected: () => [...committed],
+      setSelected: (nextIds, setOpts) => {
+        const list = Array.isArray(nextIds) ? nextIds.filter(id => validIds.includes(id)) : [...validIds];
+        committed = PLATFORMS.map(p => p.id).filter(id => list.includes(id));
+        draft = [...committed];
+        syncTriggerUi();
+        syncDraftUi();
+        if (setOpts?.emit && typeof opts.onApply === 'function') opts.onApply([...committed]);
+      },
+    };
+    host.__pmPicker = api;
+    return api;
+  }
+
+  let activeMenuEl = null;
+  function closeActiveMenu() {
+    if (activeMenuEl) {
+      activeMenuEl.remove();
+      activeMenuEl = null;
+    }
+  }
+
+  function openActionMenu(anchorEl, items) {
+    closeActiveMenu();
+    if (!anchorEl || !items?.length) return;
+    const menu = document.createElement('div');
+    menu.className = 'ctx-menu';
+    menu.setAttribute('role', 'menu');
+    for (const item of items) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ctx-menu-item' + (item.danger ? ' is-danger' : '');
+      btn.setAttribute('role', 'menuitem');
+      btn.disabled = Boolean(item.disabled);
+      btn.textContent = item.label;
+      btn.onclick = async () => {
+        closeActiveMenu();
+        if (typeof item.onClick === 'function') await item.onClick();
+      };
+      menu.append(btn);
+    }
+    document.body.append(menu);
+    activeMenuEl = menu;
+
+    const r = anchorEl.getBoundingClientRect();
+    const mr = menu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(window.innerWidth - mr.width - 8, r.right - mr.width));
+    const top = (r.bottom + 4 + mr.height > window.innerHeight - 8)
+      ? Math.max(8, r.top - mr.height - 4)
+      : r.bottom + 4;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.querySelector('button:not(:disabled)')?.focus();
+
+    const onOutside = e => {
+      if (activeMenuEl && !activeMenuEl.contains(e.target) && e.target !== anchorEl) {
+        closeActiveMenu();
+        document.removeEventListener('click', onOutside);
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    const onKey = e => {
+      if (e.key === 'Escape') {
+        closeActiveMenu();
+        anchorEl.focus();
+        document.removeEventListener('click', onOutside);
+        document.removeEventListener('keydown', onKey);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('click', onOutside);
+      document.addEventListener('keydown', onKey);
+    }, 0);
+  }
+
+  function confirmPublishedModal(post) {
+    return new Promise(resolve => {
+      const dlg = document.getElementById('confirm-published-dialog');
+      if (!dlg) {
+        const url = window.prompt(`Enter the actual HTTPS URL for ${post.platform} post (${post.sku}):`);
+        resolve(url ? { published_url: url.trim(), external_post_id: '' } : null);
+        return;
+      }
+      const platMeta = PLATFORMS.find(p => p.id === post.platform);
+      document.getElementById('confpub-meta').textContent = `${platMeta?.name || post.platform} · ${post.sku} (${post.id})`;
+      const urlIn = document.getElementById('confpub-url');
+      const extIn = document.getElementById('confpub-ext-id');
+      const errEl = document.getElementById('confpub-error');
+      const cancelBtn = document.getElementById('confpub-cancel');
+      const okBtn = document.getElementById('confpub-submit');
+      urlIn.value = post.published_url || '';
+      extIn.value = post.external_post_id || '';
+      errEl.textContent = '';
+
+      function finish(val) {
+        okBtn.onclick = null;
+        cancelBtn.onclick = null;
+        dlg.close();
+        resolve(val);
+      }
+      okBtn.onclick = () => {
+        const rawUrl = urlIn.value.trim();
+        if (!rawUrl.startsWith('https://')) {
+          errEl.textContent = 'Enter a valid HTTPS post URL returned after publishing.';
+          urlIn.focus();
+          return;
+        }
+        finish({ published_url: rawUrl, external_post_id: extIn.value.trim() });
+      };
+      cancelBtn.onclick = () => finish(null);
+      dlg.showModal();
+      urlIn.focus();
+    });
+  }
+
+  function openContentExpandModal(post, initial) {
+    return new Promise(resolve => {
+      const dlg = document.getElementById('content-expand-dialog');
+      if (!dlg) { resolve(null); return; }
+      const platMeta = PLATFORMS.find(p => p.id === post.platform);
+      document.getElementById('expand-ed-meta').textContent = `${platMeta?.name || post.platform} · ${post.sku} (${post.id})`;
+      const warnEl = document.getElementById('expand-ed-warn');
+      warnEl.hidden = !['Approved', 'Scheduled'].includes(post.status);
+
+      const titleIn = document.getElementById('expand-ed-title');
+      const capIn = document.getElementById('expand-ed-caption');
+      const descIn = document.getElementById('expand-ed-desc');
+      const tagsIn = document.getElementById('expand-ed-tags');
+      const linkIn = document.getElementById('expand-ed-link');
+      const errEl = document.getElementById('expand-ed-error');
+      const cancelBtn = document.getElementById('expand-ed-cancel');
+      const saveBtn = document.getElementById('expand-ed-save');
+
+      titleIn.value = initial.title || '';
+      capIn.value = initial.caption || '';
+      descIn.value = initial.description || '';
+      tagsIn.value = initial.hashtags || '';
+      linkIn.value = initial.product_link || '';
+      errEl.textContent = '';
+
+      function finish(val) {
+        saveBtn.onclick = null;
+        cancelBtn.onclick = null;
+        dlg.close();
+        resolve(val);
+      }
+      saveBtn.onclick = () => {
+        if (!capIn.value.trim()) {
+          errEl.textContent = 'Caption cannot be empty.';
+          capIn.focus();
+          return;
+        }
+        if (!linkIn.value.trim().startsWith('https://')) {
+          errEl.textContent = 'Product link must be a valid HTTPS URL.';
+          linkIn.focus();
+          return;
+        }
+        finish({
+          title: titleIn.value,
+          caption: capIn.value,
+          description: descIn.value,
+          hashtags: tagsIn.value,
+          product_link: linkIn.value,
+        });
+      };
+      cancelBtn.onclick = () => finish(null);
+      dlg.showModal();
+      capIn.focus();
+    });
+  }
+
   window.StudioUI = {
     initShell,
     navigate,
@@ -346,6 +803,13 @@
     confirmAction,
     promptReason,
     updateNotifications,
+    PLATFORMS,
+    createPlatformIcon,
+    createPlatformMultiSelect,
+    openActionMenu,
+    closeActiveMenu,
+    confirmPublishedModal,
+    openContentExpandModal,
     getRoute: () => currentRoute,
   };
 })();

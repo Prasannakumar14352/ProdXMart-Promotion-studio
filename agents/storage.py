@@ -1141,6 +1141,17 @@ class AgentStorage:
             )
         return self.get_social_post(post_id, mode=mode)
 
+    def mark_social_unscheduled(self, *, post_id: str, mode: str) -> dict[str, Any]:
+        stamp = engine.now().isoformat()
+        with engine.LOCK, closing(self._connect()) as con, con:
+            con.execute(
+                '''UPDATE social_posts
+                   SET status='Approved', scheduled_at='', error_message='', updated_at=?
+                   WHERE id=? AND mode=? AND status='Scheduled' ''',
+                (stamp, post_id, mode),
+            )
+        return self.get_social_post(post_id, mode=mode)
+
     def update_social_package_path(self, *, post_id: str, mode: str, package_path: str) -> dict[str, Any]:
         stamp = engine.now().isoformat()
         with engine.LOCK, closing(self._connect()) as con, con:
@@ -1541,6 +1552,17 @@ class AgentStorage:
                    SET status='Scheduled', scheduled_at=?, week=?, error_message='', updated_at=?
                    WHERE id=? AND mode=?''',
                 (scheduled_at, week, stamp, post_id, mode),
+            )
+        return self.get_social_post(post_id, mode=mode)
+
+    def mark_social_unscheduled(self, *, post_id: str, mode: str) -> dict[str, Any]:
+        stamp = engine.now().isoformat()
+        with engine.LOCK, closing(self._connect()) as con, con:
+            con.execute(
+                '''UPDATE social_posts
+                   SET status='Approved', scheduled_at='', error_message='', updated_at=?
+                   WHERE id=? AND mode=? AND status='Scheduled' ''',
+                (stamp, post_id, mode),
             )
         return self.get_social_post(post_id, mode=mode)
 

@@ -7,9 +7,12 @@ import shutil
 import subprocess
 import tempfile
 
+import telugu_support
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from soundtrack import write_music
+
+TeluguShapingError = telugu_support.TeluguShapingError
 
 ROOT = Path(__file__).resolve().parent
 W, H = 1080, 1920
@@ -45,17 +48,130 @@ def layout_for_category(category: str, name: str = '') -> dict:
     return {'layout_id': key, **CATEGORY_LAYOUTS[key]}
 
 
-@lru_cache(maxsize=200)
-def font(size, telugu=False, bold=False):
-    family = 'NotoSansTelugu-Regular' if telugu else ('NotoSans-Bold' if bold else 'NotoSans-Regular')
-    return ImageFont.truetype(str(ROOT / 'assets' / (family + '.ttf')), size)
+@lru_cache(maxsize=240)
+def _cached_font(path: str, size: int, layout_value: int | None):
+    if layout_value is None:
+        return ImageFont.truetype(path, size)
+    return ImageFont.truetype(path, size, layout_engine=ImageFont.Layout(layout_value))
+
+
+def font(size, telugu=False, bold=False, raqm=False):
+    if telugu:
+        telugu_support.ensure_telugu_raqm_ready()
+        return _cached_font(
+            str(ROOT / 'assets' / 'NotoSansTelugu-Regular.ttf'),
+            size,
+            int(ImageFont.Layout.RAQM),
+        )
+    family = 'NotoSans-Bold' if bold else 'NotoSans-Regular'
+    path = str(ROOT / 'assets' / (family + '.ttf'))
+    if raqm and telugu_support.is_raqm_ready():
+        return _cached_font(path, size, int(ImageFont.Layout.RAQM))
+    return _cached_font(path, size, None)
+
+
+def _measure_mixed_line(draw, line_text: str, size: int, bold: bool) -> float:
+    runs = telugu_support.segment_script_runs(line_text, ROOT / 'assets' / 'NotoSansTelugu-Regular.ttf')
+    total = 0.0
+    for seg, is_te in runs:
+        face = font(size, telugu=is_te, bold=(bold and not is_te), raqm=True)
+        total += draw.textlength(seg, font=face)
+    return total
+
+
+def _mixed_line_step(size: int, bold: bool) -> int:
+    te_face = font(size, telugu=True, bold=False, raqm=True)
+    en_face = font(size, telugu=False, bold=bold, raqm=True)
+    te_asc, te_desc = te_face.getmetrics()
+    en_asc, en_desc = en_face.getmetrics()
+    return max(int(size * 1.55), max(te_asc, en_asc) + max(te_desc, en_desc) + max(6, int(size * 0.14)))
+
+
+def _draw_mixed_line(draw, x: int, y: int, line_text: str, size: int, bold: bool, color: str) -> None:
+    te_face = font(size, telugu=True, bold=False, raqm=True)
+    en_face = font(size, telugu=False, bold=bold, raqm=True)
+    baseline_y = y + max(te_face.getmetrics()[0], en_face.getmetrics()[0])
+    cur_x = float(x)
+    for seg, is_te in telugu_support.segment_script_runs(line_text, ROOT / 'assets' / 'NotoSansTelugu-Regular.ttf'):
+        if not seg:
+            continue
+        face = te_face if is_te else en_face
+        draw.text((cur_x, baseline_y), seg, font=face, fill=color, anchor='ls')
+        cur_x += draw.textlength(seg, font=face)
+
+
+def _wrap_mixed_text(draw, text: str, size: int, bold: bool, width: int) -> list[str]:
+    lines: list[str] = []
+    paragraphs = (text or '').splitlines() or ['']
+    for para in paragraphs:
+        words = para.split()
+        if not words:
+            if len(paragraphs) > 1:
+                lines.append('')
+            continue
+        para_lines = ['']
+        for word in words:
+            candidate = (para_lines[-1] + ' ' + word).strip()
+            if para_lines[-1] and _measure_mixed_line(draw, candidate, size, bold) <= width:
+                para_lines[-1] = candidate
+            elif not para_lines[-1] and _measure_mixed_line(draw, word, size, bold) <= width:
+                para_lines[-1] = word
+            elif _measure_mixed_line(draw, word, size, bold) <= width:
+                para_lines.append(word)
+            else:
+                # Word itself is wider than box: wrap cleanly at akshara/grapheme boundaries.
+                if para_lines[-1]:
+                    para_lines.append('')
+                for cluster in telugu_support.split_text_clusters(word):
+                    cand_cluster = para_lines[-1] + cluster
+                    if para_lines[-1] and _measure_mixed_line(draw, cand_cluster, size, bold) > width:
+                        para_lines.append(cluster)
+                    else:
+                        para_lines[-1] = cand_cluster
+        lines.extend(para_lines)
+    return lines or ['']
 
 
 def copy_block(draw, text, xy, width, height, size, color, *, telugu=False, bold=False):
     """Wrap to a bounded box and ellipsize unusually long catalogue copy."""
     x, y = xy
+    has_te = telugu_support.contains_telugu(text)
+    if telugu or has_te:
+        # Never render Telugu via Layout.BASIC — fail fast if RAQM/HarfBuzz/FriBiDi is missing.
+        telugu_support.ensure_telugu_raqm_ready()
+        chosen_size = 32
+        chosen_lines: list[str] = ['']
+        chosen_step = _mixed_line_step(32, bold)
+        for point in range(size, 31, -2):
+            candidate_lines = _wrap_mixed_text(draw, text, point, bold, width)
+            step = _mixed_line_step(point, bold)
+            if len(candidate_lines) * step <= height and all(
+                _measure_mixed_line(draw, s, point, bold) <= width for s in candidate_lines
+            ):
+                chosen_size, chosen_lines, chosen_step = point, candidate_lines, step
+                break
+        else:
+            chosen_size = min(size, 32)
+            chosen_lines = _wrap_mixed_text(draw, text, chosen_size, bold, width)
+            chosen_step = _mixed_line_step(chosen_size, bold)
+
+        max_lines = max(1, height // chosen_step)
+        truncated = len(chosen_lines) > max_lines
+        visible = chosen_lines[:max_lines]
+        if visible:
+            last = visible[-1].rstrip()
+            if truncated or _measure_mixed_line(draw, last, chosen_size, bold) > width:
+                clusters = telugu_support.split_text_clusters(last)
+                while clusters and _measure_mixed_line(draw, ''.join(clusters).rstrip() + '…', chosen_size, bold) > width:
+                    clusters.pop()
+                visible[-1] = ''.join(clusters).rstrip() + '…'
+        for line in visible:
+            _draw_mixed_line(draw, x, y, line, chosen_size, bold, color)
+            y += chosen_step
+        return
+
     for point in range(size, 31, -2):
-        face = font(point, telugu, bold)
+        face = font(point, False, bold)
         lines = ['']
         for word in text.split():
             candidate = (lines[-1] + ' ' + word).strip()

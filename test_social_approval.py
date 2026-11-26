@@ -148,8 +148,19 @@ class SocialApprovalCenterTests(unittest.TestCase):
             self.assertIn('video.mp4', zf.namelist())
             self.assertIn('thumbnail.jpg', zf.namelist())
 
-        # 4. Schedule -> Manual publish adapter NEVER marks Published without confirmation!
+        # 4. Schedule -> Cancel Schedule -> Re-schedule -> Manual publish adapter NEVER marks Published without confirmation!
         future_ist = (engine.now() + timedelta(days=1)).isoformat()
+        scheduled = schedule_social_post(orch.storage, mode='store', post_id=ig_post['id'], scheduled_at=future_ist)
+        self.assertEqual(scheduled['status'], 'Scheduled')
+
+        code_unsched, raw_unsched = invoke_handler(
+            'POST', '/agents/social/cancel-schedule', orchestrator=orch,
+            body={'mode': 'store', 'post_id': ig_post['id']},
+        )
+        self.assertEqual(code_unsched, 200)
+        self.assertEqual(json.loads(raw_unsched)['post']['status'], 'Approved')
+        self.assertEqual(json.loads(raw_unsched)['post']['scheduled_at'], '')
+
         scheduled = schedule_social_post(orch.storage, mode='store', post_id=ig_post['id'], scheduled_at=future_ist)
         self.assertEqual(scheduled['status'], 'Scheduled')
 
@@ -278,6 +289,16 @@ class SocialApprovalCenterTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertNotIn('yt_secret_abcd', cred_raw)
         self.assertIn('abcd', cred_raw)
+
+        # Account readiness distinguishes credentials saved from verified live connection.
+        code_st, st_raw = invoke_handler('GET', '/agents/social/state?mode=store', orchestrator=orch)
+        self.assertEqual(code_st, 200)
+        accounts = json.loads(st_raw)['accounts']
+        self.assertEqual(accounts['instagram_reels']['connection_status'], 'not_configured')
+        self.assertFalse(accounts['instagram_reels']['live_publishing_available'])
+        self.assertTrue(accounts['instagram_reels']['manual_publishing_available'])
+        self.assertEqual(accounts['youtube_shorts']['connection_status'], 'partial_credentials')
+        self.assertFalse(accounts['youtube_shorts']['verified_connection'])
 
 
 if __name__ == '__main__':

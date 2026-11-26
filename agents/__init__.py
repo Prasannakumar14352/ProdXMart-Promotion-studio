@@ -1,5 +1,14 @@
 """Modular AI Agent Center package for ProdXMart Promotion Studio."""
 
+from agents.telugu_support import (
+    TeluguShapingError,
+    configure_windows_dll_search_path,
+    contains_telugu,
+    ensure_telugu_raqm_ready,
+    get_telugu_rendering_status,
+    segment_script_runs,
+    split_text_clusters,
+)
 from agents.base import (
     AgentCancelledError,
     AgentConfigurationError,
@@ -53,8 +62,10 @@ from agents.social_agent import (
     SOCIAL_STATUSES,
     SocialMediaAgent,
     approve_social_post,
+    cancel_scheduled_social_post,
     confirm_social_post_published,
     edit_social_post,
+    get_social_accounts_readiness,
     publish_or_prepare_social_post,
     reconcile_social_approvals,
     reject_social_post,

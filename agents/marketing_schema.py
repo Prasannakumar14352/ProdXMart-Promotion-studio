@@ -254,12 +254,12 @@ def build_fallback_product_marketing(
     season_prefix = f'{season_theme} · ' if season_theme else ''
 
     if language == 'te':
-        hook = f'{season_prefix}{category} కోసం సరైన ఎంపిక ఇదేనా?'
-        audience = f'{category} విభాగంలో నాణ్యమైన ఉత్పత్తులను కోరుకునే ఆన్‌లైన్ కొనుగోలుదారులు'
-        objective = f'{name} యొక్క వివరాలు మరియు ధర ₹{price} ను స్పష్టంగా చూపించి ProdXMart ఉత్పత్తి పేజీకి ట్రాఫిక్ పెంచడం.'
+        hook = f'{season_prefix}మీ స్టైల్‌కి కొత్త లుక్!' if not season_theme else f'{season_prefix}రోజూ వాడటానికి బెస్ట్ {category} ఇదే!'
+        audience = f'{category} విభాగంలో నాణ్యమైన ప్రొడక్ట్స్ కోరుకునే ఆన్‌లైన్ కొనుగోలుదారులు'
+        objective = f'{name} వివరాలు, ఫోటోలు మరియు ధర ₹{price} స్పష్టంగా చూపించి ProdXMart ఉత్పత్తి పేజీకి ట్రాఫిక్ పెంచడం.'
         benefits = [
-            f'{category} విభాగంలో రోజువారీ అవసరాలకు అనువైన {name}.',
-            f'ProdXMart లో అందుబాటులో ఉన్న ధర: ₹{price}.',
+            f'రోజూ వాడటానికి అనువుగా ఉండే {name} ({category}).',
+            f'ProdXMart లో నేరుగా లభించే ధర: ₹{price}.',
         ]
         if feature:
             benefits.append(feature)
@@ -269,37 +269,45 @@ def build_fallback_product_marketing(
                 'duration_seconds': 4,
                 'visual': f'{name} ప్రధాన ఫోటోను శుభ్రమైన నేపథ్యంలో జూమ్-ఇన్ షాట్‌తో చూపించండి.',
                 'on_screen_text': hook,
-                'voiceover': f'{hook} {name} చూడండి.',
+                'voiceover': f'{hook} ఒక్కసారి ఈ {name} చూడండి.',
             },
             {
                 'scene_number': 2,
                 'duration_seconds': 4,
-                'visual': f'{name} యొక్క వివరాలు మరియు దగ్గరి ఫోటోలను చూపించండి.',
-                'on_screen_text': feature or name,
-                'voiceover': feature or f'{category} విభాగంలో ఇది ఒక చక్కని ఎంపిక.',
+                'visual': f'{name} దగ్గరి ఫోటోలను మరియు ముఖ్య వివరాలను చూపించండి.',
+                'on_screen_text': feature or 'మరిన్ని ఫోటోలు చూడండి.',
+                'voiceover': feature or f'మరిన్ని ఫోటోలు చూడండి — {category} కోసం ఇది చాలా మంచి ఎంపిక.',
             },
             {
                 'scene_number': 3,
                 'duration_seconds': 3,
                 'visual': f'ధర కార్డుతో పాటు {name} ఫోటోను ప్రదర్శించండి.',
                 'on_screen_text': f'ధర: ₹{price}',
-                'voiceover': f'ProdXMart లో ధర కేవలం ₹{price}.',
+                'voiceover': f'ProdXMart లో దీని ధర ₹{price}. మీకు నచ్చితే ఇప్పుడే ఆర్డర్ చేయండి.',
             },
             {
                 'scene_number': 4,
                 'duration_seconds': 4,
                 'visual': 'ProdXMart ఉత్పత్తి లింక్ మరియు బ్రాండ్ కార్డును చూపించండి.',
-                'on_screen_text': 'prodxmart.com చూడండి',
-                'voiceover': f'పూర్తి వివరాల కోసం ఇప్పుడే {url} సందర్శించండి.',
+                'on_screen_text': 'మీకు నచ్చితే ఇప్పుడే ఆర్డర్ చేయండి.',
+                'voiceover': f'మరిన్ని వివరాల కోసం ProdXMart వెబ్‌సైట్ చూడండి. లింక్: {url}',
             },
         ]
         captions = [s['on_screen_text'] for s in storyboard]
         voiceover_script = ' '.join(s['voiceover'] for s in storyboard)
         video_script = '\n'.join(f"Scene {s['scene_number']} ({s['duration_seconds']}s): {s['visual']} | VO: {s['voiceover']}" for s in storyboard)
-        cta = f'పూర్తి వివరాల కోసం సందర్శించండి: {url}'
+        cta = f'మరిన్ని వివరాల కోసం ProdXMart వెబ్‌సైట్ చూడండి: {url}'
         hashtags = ['#ProdXMart', f'#{cat_tag}', '#TeluguReels', '#ProductShowcase']
-        ig_caption = f'{hook}\n{name} · ₹{price}\n{feature}\n{cta}\n' + ' '.join(hashtags)
-        fb_caption = f'{season_prefix}{name} ({category}) — ధర ₹{price}.\n{feature}\n{cta}'
+        ig_lines = [hook, f'{name} · ₹{price}']
+        if feature:
+            ig_lines.append(feature)
+        ig_lines.extend([cta, ' '.join(hashtags)])
+        ig_caption = '\n'.join(ig_lines)
+        fb_lines = [f'{season_prefix}{name} ({category}) — ధర ₹{price}.']
+        if feature:
+            fb_lines.append(feature)
+        fb_lines.append(cta)
+        fb_caption = '\n'.join(fb_lines)
         yt_title = f'{name} · ₹{price} | ProdXMart Shorts'[:100]
         yt_desc = f'{name} ({category}) వివరాలు మరియు ధర ₹{price}.\n{cta}\n' + ' '.join(hashtags)
     else:
