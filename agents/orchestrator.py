@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import closing
 import queue
 import threading
 import traceback
@@ -53,6 +54,9 @@ class MasterOrchestratorAgent(BaseAgent):
         self._orchestrator = orchestrator
 
     def execute(self, ctx: AgentContext) -> AgentResult:
+        if ctx.payload.get('product_promotion'):
+            from agents.promotion_workflow import prepare_product_promotion
+            return prepare_product_promotion(ctx, self._orchestrator.storage)
         requested = ctx.payload.get('steps')
         if requested is not None:
             if not isinstance(requested, list) or not all(isinstance(s, str) for s in requested):
@@ -89,6 +93,8 @@ class MasterOrchestratorAgent(BaseAgent):
                 step_payload['video_handoff'] = step_outputs['marketing_agent']['data'].get('video_handoff')
             if aid == 'qa_agent' and 'video_agent' in step_outputs:
                 step_payload['qa_handoff'] = step_outputs['video_agent']['data'].get('qa_handoff')
+            if aid == 'social_agent' and 'video_agent' in step_outputs:
+                step_payload['production_id'] = (step_outputs['video_agent']['data'].get('qa_handoff') or {}).get('production_id', '')
             child_run = ctx.execute_child(aid, step_payload)
             if child_run['status'] == 'cancelled':
                 raise AgentCancelledError(f'Cancelled while executing {aid}.')
@@ -142,6 +148,7 @@ class MasterOrchestrator:
         self.storage = storage or AgentStorage()
         self.ollama_factory = ollama_factory or OllamaClient
         self._lock = threading.RLock()
+        self._promotion_lock = threading.Lock()
         self._queue: queue.Queue[Optional[str]] = queue.Queue()
         self._cancel_events: dict[str, threading.Event] = {}
         self._active_children: dict[str, set[str]] = {}
@@ -258,6 +265,26 @@ class MasterOrchestrator:
         self.storage.add_log(run['id'], agent_id, 'INFO', f'Task queued ({trigger}) with model {effective_model}.')
         self._queue.put(run['id'])
         return run
+
+    def enqueue_product_promotion(self, sku: str, *, language: str = 'en',
+                                  duration_seconds: int = 30, platforms=None) -> dict[str, Any]:
+        """Queue once per verified product/content configuration in the real store."""
+        from agents.promotion_workflow import promotion_payload
+        from agents.social_adapters import SUPPORTED_PLATFORMS
+        with self._promotion_lock:
+            payload = promotion_payload(sku, language, duration_seconds,
+                                        list(SUPPORTED_PLATFORMS) if platforms is None else platforms)
+            with engine.LOCK, closing(engine.db()) as con:
+                previous = con.execute(
+                    "SELECT id FROM agent_runs WHERE mode='store' AND agent_id='master_orchestrator' "
+                    "AND json_extract(input_json, '$.promotion_key')=? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                    (payload['promotion_key'],),
+                ).fetchone()
+            if previous:
+                return {'run': self.storage.get_run(previous['id']), 'already_exists': True}
+            run = self.enqueue_run('master_orchestrator', mode='store', payload=payload,
+                                   trigger='product_saved')
+            return {'run': run, 'already_exists': False}
 
     def stop_run(self, run_id: str) -> dict[str, Any]:
         run = self.storage.get_run(run_id)
@@ -514,6 +541,17 @@ class MasterOrchestrator:
                         finished_at=engine.now().isoformat(),
                     )
                     self.storage.add_log(run_id, agent_id, 'INFO', result.summary)
+                    if (agent_id == 'catalog_agent' and run['mode'] == 'store'
+                            and not run.get('parent_run_id')
+                            and global_cfg.get('execution_mode') == 'auto_prepare'):
+                        for sku in result.data.get('saved_skus', []):
+                            try:
+                                queued = self.enqueue_product_promotion(sku)
+                                self.storage.add_log(run_id, agent_id, 'INFO',
+                                    f"Promotion for {sku}: {queued['run']['id']}.")
+                            except Exception as exc:
+                                self.storage.add_log(run_id, agent_id, 'WARNING',
+                                    f'Promotion not queued for {sku}: {exc}')
                     return done
                 except AgentCancelledError as exc:
                     cancelled = self.storage.update_run(

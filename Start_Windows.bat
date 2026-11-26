@@ -11,6 +11,8 @@ if errorlevel 1 (
   ".venv\Scripts\python.exe" -m pip install -r requirements.txt
   if errorlevel 1 goto fail
 )
+".venv\Scripts\python.exe" "scripts\setup_telugu_windows.py"
+if errorlevel 1 goto fail
 ".venv\Scripts\python.exe" studio.py
 if errorlevel 1 goto fail
 exit /b 0

@@ -177,7 +177,7 @@ class MarketingAgent(BaseAgent):
             'max_products': max_products,
             'regenerate_campaign_id': str(data.get('regenerate_campaign_id') or '').strip(),
             'create_campaign_drafts': bool(data.get('create_campaign_drafts', False)),
-            'fallback_on_ollama_error': bool(data.get('fallback_on_ollama_error', False)),
+            'fallback_on_ollama_error': bool(data.get('fallback_on_ollama_error', True)),
         }
 
     def _sales_prioritized_skus(self, ctx: AgentContext, storage: Any) -> list[str]:

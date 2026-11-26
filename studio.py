@@ -13,6 +13,8 @@ from contextlib import closing
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
+from telugu_support import configure_windows_dll_search_path, get_telugu_rendering_status
+configure_windows_dll_search_path()
 from engine import ROOT, LOCK, batch, catalogue, db, decide, directory, earnings, now, records, remake, video_path
 from publisher import run_due, enabled
 from product_editor import details, photo_bytes, save, store_photos
@@ -22,8 +24,10 @@ from agents.marketing_agent import create_campaign_drafts_for_items
 from agents.credentials import SecureCredentialStore
 from agents.social_agent import (
     approve_social_post,
+    cancel_scheduled_social_post,
     confirm_social_post_published,
     edit_social_post,
+    get_social_accounts_readiness,
     publish_or_prepare_social_post,
     reconcile_social_approvals,
     reject_social_post,
@@ -188,7 +192,10 @@ class Handler(BaseHTTPRequestHandler):
             if u.path=='/agents/state':
                 params=parse_qs(u.query)
                 mode=params.get('mode',['store'])[0];directory(mode)
-                return self.respond(orch.get_state(mode=mode))
+                st=orch.get_state(mode=mode)
+                stopped=bool((st.get('social_settings') or {}).get('global_publishing_stopped'))
+                st['social_accounts']=get_social_accounts_readiness(SecureCredentialStore(), global_stopped=stopped)
+                return self.respond(st)
             if u.path=='/agents/history':
                 params=parse_qs(u.query)
                 mode=params.get('mode',['store'])[0];directory(mode)
@@ -227,11 +234,14 @@ class Handler(BaseHTTPRequestHandler):
                 params=parse_qs(u.query)
                 mode=params.get('mode',['store'])[0];directory(mode)
                 reconcile_social_approvals(orch.storage,mode)
+                settings=orch.storage.get_social_settings()
+                cred_store=SecureCredentialStore()
                 return self.respond({
                     'mode':mode,
                     'posts':orch.storage.list_social_posts(mode=mode,limit=100),
-                    'settings':orch.storage.get_social_settings(),
-                    'credentials':SecureCredentialStore().list_status(),
+                    'settings':settings,
+                    'credentials':cred_store.list_status(),
+                    'accounts':get_social_accounts_readiness(cred_store, global_stopped=bool(settings.get('global_publishing_stopped'))),
                 })
             pkg_match=re.fullmatch(r'/agents/social/package/([0-9a-f]+)\.zip',u.path)
             if pkg_match:
@@ -268,7 +278,24 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(photo_bytes({'url':data['url']}),'image/jpeg')
             if self.path=='/product':
                 if mode!='store':raise ValueError('Switch to My store to edit products.')
+                from agents.promotion_workflow import validate_preferences
+                requested = data.get('auto_promote')
+                if requested is True:
+                    language, duration, platforms = validate_preferences(
+                        data.get('promotion_language', 'en'), data.get('promotion_duration', 30),
+                        data.get('promotion_platforms', ['instagram_reels','facebook_reels','youtube_shorts']))
                 msg=save(data)
+                if requested is True:
+                    try:
+                        orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                        queued = orch.enqueue_product_promotion(str(data['sku']).strip(), language=language,
+                            duration_seconds=duration, platforms=platforms)
+                        run = queued['run']
+                        state = 'Existing promotion job' if queued['already_exists'] else 'Promotion queued'
+                        return self.respond({'message': f"{msg} {state}: {run['status']} ({run['id']}). Review in AI Agent Center.",
+                                             'promotion_run':run})
+                    except Exception as exc:
+                        return self.respond({'message': f'{msg} Promotion not queued: {exc}', 'promotion_warning':str(exc)})
             elif self.path=='/generate':msg=batch(mode)
             elif self.path=='/remake':msg=remake(mode,data['id'])
             elif self.path=='/decide':msg=decide(mode,data['action'],data['ids'],data.get('start',''))
@@ -398,6 +425,10 @@ class Handler(BaseHTTPRequestHandler):
                 orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
                 post = schedule_social_post(orch.storage, mode=mode, post_id=str(data.get('post_id','')).strip(), scheduled_at=str(data.get('scheduled_at','')).strip())
                 return self.respond({'message':f"Scheduled post {post['id']}.",'post':post})
+            elif self.path=='/agents/social/cancel-schedule':
+                orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
+                post = cancel_scheduled_social_post(orch.storage, mode=mode, post_id=str(data.get('post_id','')).strip())
+                return self.respond({'message':f"Cancelled schedule for post {post['id']} (returned to Approved).",'post':post})
             elif self.path=='/agents/social/publish':
                 orch = getattr(self.server, 'orchestrator', None) or get_orchestrator()
                 post = publish_or_prepare_social_post(orch.storage, mode=mode, post_id=str(data.get('post_id','')).strip(), adapter_mode=str(data.get('adapter_mode','manual_package')))
@@ -647,6 +678,13 @@ def build_overview_payload(orch, *, mode: str, date_range: str = 'month') -> dic
         'integration_health': {
             'ollama': {'label': 'Ollama AI', 'status': 'configured', 'detail': f"{ollama_cfg['default_model']} @ {ollama_cfg['ollama_base_url']}"},
             'ffmpeg': {'label': 'FFmpeg Engine', 'status': 'ready' if ff_ok else 'missing', 'detail': '1080×1920 H.264/AAC ready' if ff_ok else 'FFmpeg not found'},
+            'telugu_rendering': (
+                lambda ts: {
+                    'label': 'Telugu Text Shaping',
+                    'status': 'ready' if ts['ready'] else 'missing',
+                    'detail': f"Pillow {ts['pillow_version']} · RAQM/HarfBuzz/FriBiDi" if ts['ready'] else ('; '.join(ts['failures'])[:80] or 'RAQM setup required'),
+                }
+            )(get_telugu_rendering_status()),
             'factori_bridge': {'label': 'Factori Bridge', 'status': 'ready' if staged else 'standby', 'detail': f"{staged['item_count']} staged" if staged else 'Extension bridge active'},
             'instagram': {'label': 'Instagram API', 'status': 'connected' if enabled() else 'disconnected', 'detail': 'Live configured' if enabled() else 'Manual / local mode'},
             'factori_api': {'label': 'Factori Official API', 'status': 'optional', 'detail': 'Optional — Pending Access'},
@@ -727,6 +765,22 @@ def build_system_integrations_payload(orch, *, mode: str):
                 'ffmpeg_path': ff_path,
                 'ffprobe_path': ffprobe_path,
             },
+            'telugu_text_rendering': (
+                lambda ts: {
+                    'name': 'Telugu Unicode Text Shaping',
+                    'status': ts['status'],
+                    'pillow_version': ts['pillow_version'],
+                    'raqm': ts['raqm'],
+                    'harfbuzz': ts['harfbuzz'],
+                    'fribidi': ts['fribidi'],
+                    'font_name': ts['font_name'],
+                    'font_path': ts['font_path'],
+                    'fribidi_dll_path': ts['fribidi_dll_path'],
+                    'playwright_available': ts['playwright_available'],
+                    'setup_command': ts['setup_command'],
+                    'failures': ts['failures'],
+                }
+            )(get_telugu_rendering_status()),
             'factori_bridge': {
                 'name': 'Factori Bridge Chrome Extension',
                 'status': 'ready' if staged else 'standby',
@@ -810,12 +864,20 @@ if __name__=='__main__':
     elif args.generate:print(batch(args.generate))
     elif args.due:run_due()
     else:
+        te_status = get_telugu_rendering_status()
         orch = get_orchestrator()
         with ThreadingHTTPServer(('127.0.0.1',args.port),Handler) as server:
             server.orchestrator = orch
             try:
                 url=f'http://127.0.0.1:{server.server_port}'
                 print('ProdXMart Studio:',url,flush=True)
+                print(
+                    'Telugu Text Shaping:',
+                    f"READY (Pillow {te_status['pillow_version']}, RAQM={te_status['raqm']}, HarfBuzz={te_status['harfbuzz']}, FriBiDi={te_status['fribidi']})"
+                    if te_status['ready']
+                    else f"WARNING ({'; '.join(te_status['failures'])}) — run {te_status['setup_command']}",
+                    flush=True,
+                )
                 threading.Thread(target=worker,daemon=True).start()
                 if not args.no_browser:webbrowser.open(url)
                 server.serve_forever()

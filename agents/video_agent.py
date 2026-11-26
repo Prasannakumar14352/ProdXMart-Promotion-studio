@@ -71,7 +71,7 @@ def _build_scene_plan(
         if idx == 0:
             p = products[0]
             h = handoff_items.get(p['sku']) or {}
-            hook = h.get('opening_hook') or ('మీ ఎంపిక ఇదేనా?' if language == 'te' else 'Discover ProdXMart Picks')
+            hook = h.get('opening_hook') or ('మీ స్టైల్‌కి కొత్త లుక్!' if language == 'te' else 'Discover ProdXMart Picks')
             scenes.append({
                 'product': p,
                 'duration_seconds': dur,
@@ -89,7 +89,7 @@ def _build_scene_plan(
             scenes.append({
                 'product': p,
                 'duration_seconds': dur,
-                'hook_text': 'ఎక్కడ దొరుకుతుంది?' if language == 'te' else 'Shop Now on ProdXMart',
+                'hook_text': 'మీకు నచ్చితే ఇప్పుడే ఆర్డర్ చేయండి.' if language == 'te' else 'Shop Now on ProdXMart',
                 'heading_text': p['name'],
                 'caption_text': cta,
                 'voiceover': (h.get('storyboard') or [{}])[-1].get('voiceover', cta),

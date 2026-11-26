@@ -389,6 +389,8 @@ class OrchestratorAndAgentCenterTests(unittest.TestCase):
         self.assertEqual(code, 200)
         sys_int = json.loads(sys_int_raw)
         self.assertIn('ollama', sys_int['integrations'])
+        self.assertIn('telugu_text_rendering', sys_int['integrations'])
+        self.assertTrue(sys_int['integrations']['telugu_text_rendering']['raqm'])
         self.assertIn('factori_official_api', sys_int['integrations'])
         self.assertEqual(sys_int['integrations']['factori_official_api']['status'], 'optional_pending')
         self.assertEqual(sys_int['integrations']['csv_excel_import']['status'], 'ready')

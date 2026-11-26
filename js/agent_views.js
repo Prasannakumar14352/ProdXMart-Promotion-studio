@@ -109,6 +109,20 @@
         onAction: () => window.StudioUI?.navigate('video'),
       },
       {
+        key: 'telugu_text_rendering',
+        title: ints.telugu_text_rendering?.name || 'Telugu Unicode Text Shaping',
+        status: ints.telugu_text_rendering?.status || 'missing',
+        details: [
+          `Pillow v${ints.telugu_text_rendering?.pillow_version || '?'} · RAQM: ${Boolean(ints.telugu_text_rendering?.raqm)} · HarfBuzz: ${Boolean(ints.telugu_text_rendering?.harfbuzz)} · FriBiDi: ${Boolean(ints.telugu_text_rendering?.fribidi)}`,
+          `Font: ${ints.telugu_text_rendering?.font_name || 'Noto Sans Telugu'}`,
+          ints.telugu_text_rendering?.fribidi_dll_path
+            ? `FriBiDi DLL: ${ints.telugu_text_rendering.fribidi_dll_path}`
+            : `Setup command: ${ints.telugu_text_rendering?.setup_command || 'scripts/setup_telugu_windows.py'}`,
+        ],
+        actionLabel: 'Open Video Studio',
+        onAction: () => window.StudioUI?.navigate('video'),
+      },
+      {
         key: 'factori_bridge',
         title: ints.factori_bridge?.name || 'Factori Bridge Extension',
         status: (document.documentElement.dataset.factoriReader || ints.factori_bridge?.staged_items > 0) ? 'ready' : (ints.factori_bridge?.status || 'standby'),
@@ -155,7 +169,8 @@
         ],
         actionLabel: 'Manage Credentials',
         onAction: () => {
-          window.StudioUI?.navigate('approvals');
+          window.StudioUI?.navigate('settings');
+          switchSettingsTab('social');
           const box = document.getElementById('social-creds-box');
           if (box) { box.open = true; box.scrollIntoView({ behavior: 'smooth' }); }
         },
@@ -171,7 +186,8 @@
         ],
         actionLabel: 'Configure Token',
         onAction: () => {
-          window.StudioUI?.navigate('approvals');
+          window.StudioUI?.navigate('settings');
+          switchSettingsTab('social');
           const box = document.getElementById('social-creds-box');
           if (box) { box.open = true; box.scrollIntoView({ behavior: 'smooth' }); }
         },
@@ -289,7 +305,8 @@
       const credsBtn = makeEl('button', 'Open Encrypted Social Credentials');
       credsBtn.type = 'button';
       credsBtn.onclick = () => {
-        window.StudioUI?.navigate('approvals');
+        window.StudioUI?.navigate('settings');
+        switchSettingsTab('social');
         const box = document.getElementById('social-creds-box');
         if (box) { box.open = true; box.scrollIntoView({ behavior: 'smooth' }); }
       };
@@ -329,6 +346,13 @@
       dataBox.append(statsGrid, exportBtn);
     }
   }
+
+  document.getElementById('open-social-accounts')?.addEventListener('click', () => {
+    window.StudioUI?.navigate('settings');
+    switchSettingsTab('social');
+    const box = document.getElementById('social-creds-box');
+    if (box) box.open = true;
+  });
 
   function switchSettingsTab(tabKey) {
     activeSettingsTab = tabKey || 'general';

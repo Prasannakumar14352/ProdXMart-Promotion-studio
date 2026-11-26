@@ -11,7 +11,7 @@ import uuid
 import engine
 from agents.ollama_client import DEFAULT_MODEL, DEFAULT_OLLAMA_URL, normalize_ollama_url
 
-ALLOWED_EXECUTION_MODES = ('manual',)
+ALLOWED_EXECUTION_MODES = ('manual', 'auto_prepare')
 TERMINAL_STATUSES = ('succeeded', 'failed', 'cancelled')
 ACTIVE_STATUSES = ('queued', 'running')
 
@@ -297,7 +297,7 @@ class AgentStorage:
             raise ValueError('Default model cannot be empty.')
         execution_mode = str(updates.get('execution_mode', current['execution_mode']) or 'manual').strip().lower()
         if execution_mode not in ALLOWED_EXECUTION_MODES:
-            raise ValueError('Phase 1 supports manual execution mode only.')
+            raise ValueError('Choose manual or auto_prepare execution mode.')
         try:
             max_retries = int(updates.get('max_retries', current['max_retries']))
             retry_delay = float(updates.get('retry_delay_seconds', current['retry_delay_seconds']))
@@ -1141,6 +1141,17 @@ class AgentStorage:
             )
         return self.get_social_post(post_id, mode=mode)
 
+    def mark_social_unscheduled(self, *, post_id: str, mode: str) -> dict[str, Any]:
+        stamp = engine.now().isoformat()
+        with engine.LOCK, closing(self._connect()) as con, con:
+            con.execute(
+                '''UPDATE social_posts
+                   SET status='Approved', scheduled_at='', error_message='', updated_at=?
+                   WHERE id=? AND mode=? AND status='Scheduled' ''',
+                (stamp, post_id, mode),
+            )
+        return self.get_social_post(post_id, mode=mode)
+
     def update_social_package_path(self, *, post_id: str, mode: str, package_path: str) -> dict[str, Any]:
         stamp = engine.now().isoformat()
         with engine.LOCK, closing(self._connect()) as con, con:
@@ -1541,6 +1552,17 @@ class AgentStorage:
                    SET status='Scheduled', scheduled_at=?, week=?, error_message='', updated_at=?
                    WHERE id=? AND mode=?''',
                 (scheduled_at, week, stamp, post_id, mode),
+            )
+        return self.get_social_post(post_id, mode=mode)
+
+    def mark_social_unscheduled(self, *, post_id: str, mode: str) -> dict[str, Any]:
+        stamp = engine.now().isoformat()
+        with engine.LOCK, closing(self._connect()) as con, con:
+            con.execute(
+                '''UPDATE social_posts
+                   SET status='Approved', scheduled_at='', error_message='', updated_at=?
+                   WHERE id=? AND mode=? AND status='Scheduled' ''',
+                (stamp, post_id, mode),
             )
         return self.get_social_post(post_id, mode=mode)
 

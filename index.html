@@ -568,21 +568,7 @@
           <div id="social-calendar" class="social-calendar"></div>
           <h3>Approval Queue &amp; Manual Publishing Packages</h3>
           <div id="social-posts" class="social-posts"></div>
-          <details id="social-creds-box" class="agent-output-details" style="margin-top:14px">
-            <summary>Future Official Meta &amp; YouTube API Credentials (Encrypted Storage)</summary>
-            <p class="hint">Optional for future API publishing. Credentials are encrypted at rest and never exposed in plain text or CSVs. No ad spend is permitted.</p>
-            <div class="agent-config-grid">
-              <label>Meta Graph Version<input type="text" id="cred-meta_graph_version" placeholder="v21.0"></label>
-              <label>Instagram Account ID<input type="text" id="cred-meta_ig_id" placeholder="Numeric IG ID"></label>
-              <label>Instagram Access Token<input type="password" id="cred-meta_ig_token" placeholder="Encrypted at rest"></label>
-              <label>Facebook Page ID<input type="text" id="cred-meta_fb_page_id" placeholder="Numeric Page ID"></label>
-              <label>Facebook Page Token<input type="password" id="cred-meta_fb_page_token" placeholder="Encrypted at rest"></label>
-              <label>YouTube Channel ID<input type="text" id="cred-youtube_channel_id" placeholder="Channel ID"></label>
-              <label>YouTube OAuth Token<input type="password" id="cred-youtube_oauth_token" placeholder="Encrypted at rest"></label>
-            </div>
-            <p id="social-creds-status" class="hint"></p>
-            <button type="button" id="social-save-creds">Save Encrypted Credentials</button>
-          </details>
+          <p class="hint">Configure accounts in <button type="button" id="open-social-accounts" class="btn btn-ghost">Settings → Social Media Accounts</button>. New agent posts use manual packages until official live transports are enabled.</p>
         </div>
 
         <div class="agent-section-head" data-subview="agents">
@@ -646,6 +632,7 @@
               <button type="button" class="settings-tab" data-stab="video">Video</button>
               <button type="button" class="settings-tab" data-stab="automation">Automation</button>
               <button type="button" class="settings-tab" data-stab="security">Security &amp; Approvals</button>
+              <button type="button" class="settings-tab" data-stab="social">Social Media Accounts</button>
               <button type="button" class="settings-tab" data-stab="data">Data &amp; Database</button>
             </div>
 
@@ -667,7 +654,7 @@
                 <div class="agent-config-grid">
                   <label>Ollama API URL<input type="url" id="agent-ollama-url" placeholder="http://localhost:11434"></label>
                   <label>Default model<input type="text" id="agent-default-model" placeholder="qwen2.5:3b"></label>
-                  <label>Execution mode<select id="agent-exec-mode"><option value="manual">Manual execution (default)</option></select></label>
+                  <label>Bulk import automation<select id="agent-exec-mode"><option value="manual">Manual bulk preparation</option><option value="auto_prepare">Automatically prepare newly imported eligible products</option></select></label>
                   <label>Max retries<input type="number" id="agent-max-retries" min="0" max="5" step="1"></label>
                   <label>Request timeout (s)<input type="number" id="agent-timeout" min="5" max="600" step="1"></label>
                 </div>
@@ -695,6 +682,25 @@
               <div id="settings-security-box"></div>
             </div>
 
+            <div class="settings-body" data-spanel="social" hidden>
+              <h3>Social Media Accounts</h3>
+              <p class="hint">Instagram Professional account / Facebook Page: <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer">Meta Developers</a>. YouTube channel: <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>. Credential presence is not a verified connection.</p>
+          <details id="social-creds-box" class="agent-output-details" style="margin-top:14px">
+            <summary>Account credentials (encrypted storage)</summary>
+            <p class="hint">Saving credentials does not enable live uploads in the newer agent workflow. Use official developer portals and account permissions; never enter social media passwords. Existing manual packages remain available. No ad spend is permitted.</p>
+            <div class="agent-config-grid">
+              <label>Meta Graph Version<input type="text" id="cred-meta_graph_version" placeholder="Supported Graph API version"></label>
+              <label>Instagram Account ID<input type="text" id="cred-meta_ig_id" placeholder="Numeric IG ID"></label>
+              <label>Instagram Access Token<input type="password" id="cred-meta_ig_token" placeholder="Encrypted at rest"></label>
+              <label>Facebook Page ID<input type="text" id="cred-meta_fb_page_id" placeholder="Numeric Page ID"></label>
+              <label>Facebook Page Token<input type="password" id="cred-meta_fb_page_token" placeholder="Encrypted at rest"></label>
+              <label>YouTube Channel ID<input type="text" id="cred-youtube_channel_id" placeholder="Channel ID"></label>
+              <label>YouTube OAuth Token<input type="password" id="cred-youtube_oauth_token" placeholder="Encrypted at rest"></label>
+            </div>
+            <p id="social-creds-status" class="hint"></p>
+            <button type="button" id="social-save-creds">Save Encrypted Credentials</button>
+          </details>
+            </div>
             <div class="settings-body" data-spanel="data" hidden>
               <h3>SQLite Database &amp; Workspace Backup</h3>
               <div id="settings-data-box"></div>
@@ -756,6 +762,13 @@
 <label>Image links <small>Optional · one per line</small><textarea id="image-links" rows="2" placeholder="https://…/product-photo.jpg"></textarea></label>
 <label class="check"><input type="checkbox" name="media_ok">I have permission to use these photos for promotion.</label>
 <label>Telugu product feature <small>Optional</small><textarea name="feature_te" rows="2" maxlength="300"></textarea></label></fieldset>
+<fieldset><legend>Automatic promotion</legend>
+<label class="check"><input type="checkbox" name="auto_promote" checked>Automatically prepare a promotional video after saving</label>
+<p class="hint">Queues this SKU only, runs marketing, video and quality checks, and prepares social drafts. Requires a promotion-ready product and an approved narration provider. Publishing always requires human approval.</p>
+<div class="pair"><label>Language<select name="promotion_language"><option value="en">English</option><option value="te">Telugu</option></select></label><label>Duration<select name="promotion_duration"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">60 seconds</option></select></label></div>
+<label class="check"><input type="checkbox" name="promotion_platform" value="instagram_reels" checked>Instagram Reels</label>
+<label class="check"><input type="checkbox" name="promotion_platform" value="facebook_reels" checked>Facebook Reels</label>
+<label class="check"><input type="checkbox" name="promotion_platform" value="youtube_shorts" checked>YouTube Shorts</label></fieldset>
 </div><div class="form-end"><div role="alert" id="form-error"></div><button type="button" id="cancel">Cancel</button><button class="primary" id="save">Save product</button></div></form></dialog>
 
 <dialog id="photo-lightbox" class="confirm-dialog" aria-label="Product photo preview" style="width:min(560px,94vw)">

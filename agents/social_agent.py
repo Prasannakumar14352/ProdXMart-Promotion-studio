@@ -365,6 +365,58 @@ def schedule_social_post(storage: Any, *, mode: str, post_id: str, scheduled_at:
     )
 
 
+def cancel_scheduled_social_post(storage: Any, *, mode: str, post_id: str) -> dict[str, Any]:
+    """Cancel a scheduled publishing slot and return the post to Approved status."""
+    reconcile_social_approvals(storage, mode)
+    post = storage.get_social_post(post_id, mode=mode)
+    if not post:
+        raise ValueError('Social post not found.')
+    if post['status'] != 'Scheduled':
+        raise ValueError('Only scheduled posts can be unscheduled.')
+    return storage.mark_social_unscheduled(post_id=post_id, mode=mode)
+
+
+def get_social_accounts_readiness(
+    cred_store: Optional[SecureCredentialStore] = None,
+    *,
+    global_stopped: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """Report honest per-platform account readiness without conflating saved credentials with verified live API."""
+    store = cred_store or SecureCredentialStore()
+    status = store.list_status()
+
+    def _entry(platform_id: str, label: str, required_keys: tuple[str, ...]) -> dict[str, Any]:
+        configured_count = sum(1 for k in required_keys if status.get(k, {}).get('configured'))
+        has_all = configured_count == len(required_keys)
+        has_any = configured_count > 0
+        if has_all:
+            conn_state = 'credentials_saved'
+            conn_label = 'Credentials Saved (Verification Required)'
+        elif has_any:
+            conn_state = 'partial_credentials'
+            conn_label = 'Partial Credentials Saved'
+        else:
+            conn_state = 'not_configured'
+            conn_label = 'Not Configured'
+        return {
+            'platform': platform_id,
+            'label': label,
+            'connection_status': conn_state,
+            'connection_label': conn_label,
+            'verified_connection': False,
+            'manual_publishing_available': not global_stopped,
+            'live_publishing_available': False,
+            'credentials_configured_count': configured_count,
+            'credentials_required_count': len(required_keys),
+        }
+
+    return {
+        'instagram_reels': _entry('instagram_reels', 'Instagram Reels', ('meta_ig_id', 'meta_ig_token')),
+        'facebook_reels': _entry('facebook_reels', 'Facebook Reels', ('meta_fb_page_id', 'meta_fb_page_token')),
+        'youtube_shorts': _entry('youtube_shorts', 'YouTube Shorts', ('youtube_channel_id', 'youtube_oauth_token')),
+    }
+
+
 def publish_or_prepare_social_post(
     storage: Any,
     *,
