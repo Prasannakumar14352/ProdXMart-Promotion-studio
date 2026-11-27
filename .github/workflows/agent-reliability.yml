@@ -1,0 +1,41 @@
+name: Agent reliability regression
+on:
+  push:
+    branches:
+      - feature/r1-agent-reliability
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libraqm0
+          python -m pip install -r requirements.txt
+      - name: Ollama reliability tests (mocked)
+        run: python -m unittest test_ollama_reliability -v
+      - name: Full Python regression
+        run: python -m unittest discover -p "test_*.py" -v
+      - name: Factori Bridge tests
+        run: node --test test_factori_details.cjs test_factori_pagination.cjs
+      - name: JavaScript syntax
+        run: |
+          for f in ui.js editor.js agents.js js/*.js; do node --check "$f" || exit 1; done
