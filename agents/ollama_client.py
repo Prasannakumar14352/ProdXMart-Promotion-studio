@@ -86,6 +86,8 @@ class OllamaClient:
         try:
             with urlopen(req, timeout=max(1.0, float(timeout))) as res:
                 body = json.loads(res.read().decode('utf-8', errors='replace'))
+            if not isinstance(body, dict) or not isinstance(body.get('models'), list):
+                raise ValueError('Invalid Ollama /api/tags response: expected a models list.')
             models = [
                 str(item.get('name', '')).strip()
                 for item in (body.get('models') or [])
@@ -198,6 +200,13 @@ class OllamaClient:
                     if cancel_event and cancel_event.is_set():
                         raise AgentCancelledError('Execution stopped during Ollama generation.') from exc
                     raise OllamaError(f'Ollama response timed out for model "{target_model}".', retryable=True) from exc
+                if cancel_event and cancel_event.is_set():
+                    raise AgentCancelledError('Execution stopped during Ollama generation.')
+                if time.monotonic() > deadline:
+                    raise OllamaError(
+                        f'Ollama request timed out after {int(self.timeout_seconds)}s for model "{target_model}".',
+                        retryable=True,
+                    )
                 if not raw_line:
                     break
                 line = raw_line.decode('utf-8', errors='replace').strip()
@@ -207,6 +216,8 @@ class OllamaClient:
                     event = json.loads(line)
                 except ValueError as exc:
                     raise OllamaError(f'Invalid JSON chunk from Ollama: {exc}', retryable=True) from exc
+                if not isinstance(event, dict):
+                    raise OllamaError('Invalid JSON chunk from Ollama: expected an object.', retryable=True)
                 if event.get('error'):
                     err_text = str(event['error'])
                     retryable = 'not found' not in err_text.lower()
@@ -214,7 +225,7 @@ class OllamaClient:
                 piece = event.get('response')
                 if isinstance(piece, str):
                     chunks.append(piece)
-                if event.get('done'):
+                if event.get('done') is True:
                     last_meta = event
                     break
 
